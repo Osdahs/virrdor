@@ -298,7 +298,7 @@
   <div class="msg" id="loadingMsg">Подключение к игре…</div>
 </div>
 
-<!-- ЭКРАН ОЖИДАНИЯ ВТОРОГО -->
+<!-- ЭКРАН ОЖИДАНИЯ -->
 <div class="screen centered" id="screen-waiting">
   <div class="spinner-big"></div>
   <div class="title" id="waitingTitle">Ожидание соперника</div>
@@ -403,10 +403,6 @@
   let sending = false;
   let myUser = null;
   let playersMeta = {};
-
-  // Загруженные изображения аватарок (для отрисовки на canvas)
-  let avatarImages = { 1: null, 2: null };
-  let avatarLetters = { 1: '?', 2: '?' };
 
   const tg = window.Telegram?.WebApp;
   if (tg) {
@@ -521,49 +517,7 @@
   }
   function hideDialog() { dialog.classList.remove('show'); }
 
-  // ============ Загрузка аватарок для canvas ============
-  function loadAvatarImage(playerNum, url) {
-    if (!url) {
-      avatarImages[playerNum] = null;
-      return;
-    }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      avatarImages[playerNum] = img;
-      draw();
-    };
-    img.onerror = () => {
-      avatarImages[playerNum] = null;
-      draw();
-    };
-    img.src = url;
-  }
-
-  function updatePlayerMeta(meta) {
-    // meta = { "1": {name, photo}, "2": {name, photo} }
-    playersMeta = meta || {};
-    for (const key of ['1', '2']) {
-      const num = parseInt(key, 10);
-      const p = meta && meta[key];
-      avatarLetters[num] = p && p.name ? p.name.charAt(0).toUpperCase() : String(num);
-      if (p && p.photo) {
-        // Не перезагружаем, если тот же URL
-        if (!avatarImages[num] || avatarImages[num].__url !== p.photo) {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.__url = p.photo;
-          img.onload = () => { avatarImages[num] = img; draw(); };
-          img.onerror = () => { avatarImages[num] = null; draw(); };
-          img.src = p.photo;
-        }
-      } else {
-        avatarImages[num] = null;
-      }
-    }
-  }
-
-  // ============ Логика ============
+  // ============ Логика игры ============
   function parseWall(k) {
     const parts = k.split(':');
     return {
@@ -742,11 +696,24 @@
     // Предпросмотр
     if (dragState) drawPreviewWallAnim();
 
-    // Фишки — аватарки с обводкой
+    // Фишки
     const p1Pos = getPiecePos('p1');
     const p2Pos = getPiecePos('p2');
-    drawPieceAvatar(p1Pos.r, p1Pos.c, 1, COLOR_P1);
-    drawPieceAvatar(p2Pos.r, p2Pos.c, 2, COLOR_P2);
+    drawPiece(p1Pos.r, p1Pos.c, COLOR_P1);
+    drawPiece(p2Pos.r, p2Pos.c, COLOR_P2);
+
+    // Контур на моей фишке, когда мой ход
+    if (!state.gameOver && state.current === myPlayer) {
+      const pos = myPlayer === 1 ? p1Pos : p2Pos;
+      const vr = toViewR(pos.r), vc = toViewC(pos.c);
+      const x = PAD + vc * CELL + CELL / 2;
+      const y = PAD + vr * CELL + CELL / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, CELL * 0.44, 0, Math.PI * 2);
+      ctx.strokeStyle = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   }
 
   function drawPreviewWallAnim() {
@@ -801,52 +768,30 @@
     ctx.fill();
   }
 
-  // Фишка-аватарка: круглая маска + цветная обводка
-  function drawPieceAvatar(row, col, playerNum, outlineColor) {
+  // Простой цветной кружок с бликом — как было раньше
+  function drawPiece(row, col, color) {
     const vr = toViewR(row), vc = toViewC(col);
-    const cx = PAD + vc * CELL + CELL / 2;
-    const cy = PAD + vr * CELL + CELL / 2;
-    const rad = CELL * 0.36;
-    const outlineWidth = Math.max(2.5, CELL * 0.06);
+    const x = PAD + vc * CELL + CELL / 2;
+    const y = PAD + vr * CELL + CELL / 2;
+    const rad = CELL * 0.32;
 
     // Тень
     ctx.beginPath();
-    ctx.arc(cx, cy + 2, rad, 0, Math.PI * 2);
+    ctx.arc(x, y + 2, rad, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fill();
 
-    // Фон под аватарку (на случай, если картинка ещё не загрузилась)
+    // Основной круг
     ctx.beginPath();
-    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-    ctx.fillStyle = '#2e3136';
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = color;
     ctx.fill();
 
-    const img = avatarImages[playerNum];
-    if (img) {
-      // Обрезка по кругу
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, cy, rad - outlineWidth * 0.5, 0, Math.PI * 2);
-      ctx.clip();
-      // Квадратом рисуем изображение, обрезая лишнее
-      const d = (rad - outlineWidth * 0.5) * 2;
-      ctx.drawImage(img, cx - d/2, cy - d/2, d, d);
-      ctx.restore();
-    } else {
-      // Буква
-      ctx.fillStyle = outlineColor;
-      ctx.font = `700 ${Math.floor(rad * 1.1)}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(avatarLetters[playerNum] || String(playerNum), cx, cy + 1);
-    }
-
-    // Обводка — всегда, цветом игрока
+    // Блик
     ctx.beginPath();
-    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-    ctx.strokeStyle = outlineColor;
-    ctx.lineWidth = outlineWidth;
-    ctx.stroke();
+    ctx.arc(x - rad * 0.28, y - rad * 0.28, rad * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fill();
   }
 
   function roundRect(x, y, w, h, r) {
@@ -873,6 +818,7 @@
     }
   }
 
+  // Аватар в панели — фото или буква
   function setAvatarDOM(el, playerNum, meta) {
     el.classList.remove('me-1', 'me-2', 'active');
     el.classList.add('me-' + playerNum);
@@ -958,28 +904,7 @@
       pieceAnim.p2 = null;
     }
     state = s;
-
-    // Обновляем метаданные игроков и подгружаем аватарки
-    if (s.players) {
-      playersMeta = s.players;
-      for (const key of ['1', '2']) {
-        const num = parseInt(key, 10);
-        const p = s.players[key];
-        avatarLetters[num] = p && p.name ? p.name.charAt(0).toUpperCase() : String(num);
-        if (p && p.photo) {
-          if (!avatarImages[num] || avatarImages[num].__url !== p.photo) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.__url = p.photo;
-            img.onload = () => { avatarImages[num] = img; draw(); };
-            img.onerror = () => { avatarImages[num] = null; draw(); };
-            img.src = p.photo;
-          }
-        } else if (!p) {
-          avatarImages[num] = null;
-        }
-      }
-    }
+    if (s.players) playersMeta = s.players;
   }
 
   // ============ Polling ============
@@ -990,7 +915,6 @@
       applyState(s);
       refresh();
 
-      // Переключение с ожидания на игру, когда второй подключился
       if (s.started && screens.waiting.classList.contains('active')) {
         resizeCanvas();
         refresh();
@@ -1049,7 +973,6 @@
         return;
       }
 
-      // Первое состояние
       const s = await api(`/api/state/${roomCode}`);
       applyState(s);
 
@@ -1099,14 +1022,11 @@
         });
       } catch (e) {}
     }
-    if (tg) {
-      try { tg.close(); } catch (e) {}
-    }
+    if (tg) { try { tg.close(); } catch (e) {} }
   }
   function leaveSilently() {
     stopPolling();
     if (roomCode && myUser && myUser.id) {
-      // fire-and-forget
       fetch(API_BASE + `/api/leave/${roomCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

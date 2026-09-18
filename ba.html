@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f22">
+<title>Virrdor</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  :root {
+    --bg: #1e1f22; --panel: #27292d; --panel-edge: #33363b;
+    --text: #dcdad6; --text-dim: #86898f;
+    --p1: #c96b5c; --p2: #6b90b8;
+    --p1-soft: #3a2b28; --p2-soft: #2a3340;
+    --gold: #e8c96a; --danger: #d9534f; --disabled: #3a3d43;
+    --move-bg: #2e3136; --move-active-bg: #3d4046; --move-text: #b5b8bd;
+  }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; color: var(--text); touch-action: none; overscroll-behavior: none; }
+
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity .4s ease; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  .centered { align-items: center; justify-content: center; padding: 30px; text-align: center; }
+  .spinner-big { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--p1); border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .centered .msg { font-size: 15px; color: var(--text-dim); max-width: 300px; line-height: 1.5; }
+  .centered .title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .room-code-badge { margin-top: 22px; font-size: 42px; font-weight: 900; letter-spacing: 8px; color: var(--text); padding: 10px 24px 10px 32px; border-radius: 16px; background: #27292d; box-shadow: inset 0 0 0 1.5px var(--panel-edge); font-variant-numeric: tabular-nums; }
+
+  .game { display: flex; flex-direction: column; }
+  .board-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; position: relative; min-height: 0; background: var(--bg); }
+  .board-wrap { position: relative; touch-action: none; }
+  canvas { display: block; border-radius: 14px; background: #2a2d32; }
+
+  .panel { flex: 0 0 auto; background: var(--panel); display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; position: relative; z-index: 5; transition: background .3s; }
+  .enemy-panel { border-bottom: 1px solid var(--panel-edge); }
+  .my-panel { border-top: 1px solid var(--panel-edge); }
+  .enemy-panel.active-1, .my-panel.active-1 { background: #2b2927; }
+  .enemy-panel.active-2, .my-panel.active-2 { background: #262a30; }
+
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #1e1f22; transition: transform .25s; overflow: hidden; position: relative; }
+  .avatar.me-1 { background: var(--p1); }
+  .avatar.me-2 { background: var(--p2); }
+  .avatar.active { transform: scale(1.08); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .panel-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .panel-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-turn { font-size: 11px; font-weight: 600; color: var(--text-dim); opacity: 0; transition: opacity .2s; letter-spacing: 0.4px; text-transform: uppercase; }
+  .panel-turn.show { opacity: 1; }
+  .enemy-panel.active-1 .panel-turn, .my-panel.active-1 .panel-turn { color: var(--p1); }
+  .enemy-panel.active-2 .panel-turn, .my-panel.active-2 .panel-turn { color: var(--p2); }
+
+  .leave-btn { width: 34px; height: 34px; border-radius: 10px; background: transparent; border: none; color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s, color .2s; flex-shrink: 0; }
+  .leave-btn:hover { background: #33363b; color: var(--danger); }
+  .leave-btn:active { transform: scale(0.94); }
+
+  .dots-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px 6px; padding: 2px 4px; flex-shrink: 0; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; background: #3a3d43; justify-self: center; transition: background .25s; }
+  .dot.me-1 { background: var(--p1); }
+  .dot.me-2 { background: var(--p2); }
+
+  .draggables { display: flex; gap: 8px; margin-top: 2px; }
+  .drag-item { flex: 1; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; position: relative; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
+  .drag-item:active { transform: scale(0.92); opacity: 0.7; }
+  .drag-item.me-1 { background: var(--p1-soft); box-shadow: inset 0 0 0 1.5px rgba(201,107,92,0.4); }
+  .drag-item.me-1 .icon { background: var(--p1); }
+  .drag-item.me-2 { background: var(--p2-soft); box-shadow: inset 0 0 0 1.5px rgba(107,144,184,0.4); }
+  .drag-item.me-2 .icon { background: var(--p2); }
+  .drag-item.disabled { opacity: 0.25; pointer-events: none; }
+  .drag-item .icon { width: 60px; height: 7px; border-radius: 4px; }
+  .drag-item.vertical .icon { width: 7px; height: 60px; }
+
+  .drag-item .sending-overlay { position: absolute; inset: 0; border-radius: 14px; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; }
+  .drag-item.sending .sending-overlay { display: flex; animation: sendingPulse 0.7s ease-in-out infinite alternate; }
+  @keyframes sendingPulse { from { background: rgba(0,0,0,0.15); } to { background: rgba(0,0,0,0.45); } }
+  .drag-item .sending-overlay .spinner { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+  .my-panel.sending { animation: panelFlash 0.6s ease-in-out infinite alternate; }
+  @keyframes panelFlash { from { background: var(--panel); } to { background: #303339; } }
+
+  .win-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 30px 24px; overflow: hidden; background: radial-gradient(ellipse at 50% 25%, rgba(232,201,106,0.10), transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(201,107,92,0.06), transparent 60%), var(--bg); opacity: 0; pointer-events: none; transition: opacity .45s ease; z-index: 50; }
+  .win-screen.show { opacity: 1; pointer-events: auto; }
+
+  .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+  .confetti i { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; opacity: 0.9; animation: fall linear infinite; }
+  .confetti i:nth-child(1) { left:  5%; background:#e8c96a; animation-duration: 4.2s; animation-delay: -0.4s; transform: rotate(20deg); }
+  .confetti i:nth-child(2) { left: 12%; background:#c96b5c; animation-duration: 5.1s; animation-delay: -1.8s; transform: rotate(80deg); }
+  .confetti i:nth-child(3) { left: 19%; background:#6b90b8; animation-duration: 3.8s; animation-delay: -0.9s; transform: rotate(140deg); }
+  .confetti i:nth-child(4) { left: 27%; background:#e8c96a; animation-duration: 5.4s; animation-delay: -2.3s; transform: rotate(60deg); }
+  .confetti i:nth-child(5) { left: 34%; background:#dcdad6; animation-duration: 4.6s; animation-delay: -1.1s; transform: rotate(30deg); }
+  .confetti i:nth-child(6) { left: 41%; background:#c96b5c; animation-duration: 5.8s; animation-delay: -3.0s; transform: rotate(120deg); }
+  .confetti i:nth-child(7) { left: 48%; background:#6b90b8; animation-duration: 4.0s; animation-delay: -0.6s; transform: rotate(75deg); }
+  .confetti i:nth-child(8) { left: 55%; background:#e8c96a; animation-duration: 5.0s; animation-delay: -2.7s; transform: rotate(200deg); }
+  .confetti i:nth-child(9) { left: 62%; background:#dcdad6; animation-duration: 4.4s; animation-delay: -1.5s; transform: rotate(45deg); }
+  .confetti i:nth-child(10){ left: 69%; background:#c96b5c; animation-duration: 5.6s; animation-delay: -0.2s; transform: rotate(170deg); }
+  .confetti i:nth-child(11){ left: 76%; background:#6b90b8; animation-duration: 4.8s; animation-delay: -2.0s; transform: rotate(90deg); }
+  .confetti i:nth-child(12){ left: 83%; background:#e8c96a; animation-duration: 5.2s; animation-delay: -3.4s; transform: rotate(230deg); }
+  .confetti i:nth-child(13){ left: 90%; background:#dcdad6; animation-duration: 4.1s; animation-delay: -1.9s; transform: rotate(110deg); }
+  .confetti i:nth-child(14){ left: 96%; background:#c96b5c; animation-duration: 5.5s; animation-delay: -2.6s; transform: rotate(55deg); }
+  .confetti i:nth-child(15){ left:  8%; background:#6b90b8; animation-duration: 6.0s; animation-delay: -4.1s; transform: rotate(15deg); }
+  .confetti i:nth-child(16){ left: 25%; background:#e8c96a; animation-duration: 6.3s; animation-delay: -3.7s; transform: rotate(160deg); }
+  .confetti i:nth-child(17){ left: 42%; background:#c96b5c; animation-duration: 5.9s; animation-delay: -4.5s; transform: rotate(95deg); }
+  .confetti i:nth-child(18){ left: 58%; background:#6b90b8; animation-duration: 6.6s; animation-delay: -3.2s; transform: rotate(210deg); }
+  .confetti i:nth-child(19){ left: 74%; background:#e8c96a; animation-duration: 6.1s; animation-delay: -4.8s; transform: rotate(40deg); }
+  .confetti i:nth-child(20){ left: 88%; background:#dcdad6; animation-duration: 6.4s; animation-delay: -3.9s; transform: rotate(130deg); }
+  @keyframes fall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 0; } 10% { opacity: 0.9; } 100% { transform: translateY(105vh) rotate(720deg); opacity: 0.85; } }
+
+  .win-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 420px; flex: 1; justify-content: center; padding: 20px 0; min-height: 0; }
+  .winner-block { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 34px; }
+  .winner-avatar-wrap { position: relative; width: 116px; height: 116px; display: flex; align-items: center; justify-content: center; }
+  .winner-avatar { width: 116px; height: 116px; border-radius: 50%; background: #2e3136; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 800; color: #1e1f22; box-shadow: 0 0 0 5px var(--p1), 0 0 0 9px rgba(232,201,106,0.35), 0 20px 44px rgba(0,0,0,0.55); position: relative; z-index: 2; }
+  .winner-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .winner-avatar.is-p2 { box-shadow: 0 0 0 5px var(--p2), 0 0 0 9px rgba(232,201,106,0.35), 0 20px 44px rgba(0,0,0,0.55); }
+  .crown { position: absolute; top: -32px; left: 50%; transform: translateX(-50%); width: 66px; height: 48px; z-index: 3; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45)); animation: crownFloat 2.8s ease-in-out infinite; }
+  @keyframes crownFloat { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
+  .winner-label { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  .winner-name { font-size: 28px; font-weight: 800; color: var(--text); text-align: center; letter-spacing: -0.3px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .loser-block { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .loser-avatar { width: 58px; height: 58px; border-radius: 50%; background: #2e3136; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #1e1f22; box-shadow: 0 0 0 3px rgba(134,137,143,0.35), 0 8px 20px rgba(0,0,0,0.4); }
+  .loser-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .loser-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+  .loser-name { font-size: 13px; color: var(--text-dim); font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .win-footer { position: relative; z-index: 2; width: 100%; max-width: 420px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .btn-close { width: 100%; border: none; font-family: inherit; font-size: 16px; font-weight: 700; padding: 16px 20px; border-radius: 14px; cursor: pointer; color: #1e1f22; background: var(--gold); transition: transform .1s, background .2s; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+  .btn-close:hover { background: #f0d47c; }
+  .btn-close:active { transform: scale(0.98); }
+  .btn-share { width: 100%; border: none; font-family: inherit; font-size: 15px; font-weight: 700; padding: 15px 20px; border-radius: 14px; cursor: pointer; color: var(--text); background: transparent; box-shadow: inset 0 0 0 1.5px var(--panel-edge); transition: transform .1s, background .2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-share:hover { background: rgba(255,255,255,0.03); }
+  .btn-share:active { transform: scale(0.98); }
+  .btn-share svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ЭКРАН ПОВТОРА */
+  .replay-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; }
+  .replay-header { flex: 0 0 auto; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--panel-edge); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .players-row { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; max-width: 360px; }
+  .player-chip { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 24px; background: #2e3136; min-width: 0; flex: 1; max-width: 140px; }
+  .player-chip.right { flex-direction: row-reverse; padding: 4px 4px 4px 12px; }
+  .player-chip .pavatar { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #1e1f22; overflow: hidden; }
+  .player-chip .pavatar.p1 { background: var(--p1); }
+  .player-chip .pavatar.p2 { background: var(--p2); }
+  .player-chip .pavatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .player-chip .pname { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .players-vs { font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 1px; flex-shrink: 0; }
+
+  .replay-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 0; }
+  .replay-body .board-area { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .replay-body .board-wrap { position: relative; touch-action: none; }
+  .replay-body canvas { border-radius: 14px; background: #2a2d32; box-shadow: 0 8px 32px rgba(0,0,0,0.35); }
+
+  .replay-footer { flex: 0 0 auto; background: var(--panel); border-top: 1px solid var(--panel-edge); display: flex; flex-direction: column; position: relative; }
+  .replay-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: transparent; }
+  .replay-progress .bar { height: 100%; background: var(--gold); transition: width .25s ease; width: 0%; }
+
+  .moves-list { display: flex; gap: 8px; padding: 12px 14px; overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; background: #232529; }
+  .moves-list::-webkit-scrollbar { display: none; }
+  .move-chip { flex-shrink: 0; padding: 6px 12px; border-radius: 10px; background: var(--move-bg); color: var(--move-text); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: 0.2px; transition: background .2s, color .2s, transform .2s; }
+  .move-chip.past { color: #b5b8bd; }
+  .move-chip.current { background: var(--move-active-bg); color: #e6e4e0; transform: scale(1.04); }
+  .move-chip.future { color: #6f7278; }
+
+  .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px 20px 20px; }
+  .nav-btn { width: 56px; height: 56px; border-radius: 50%; border: none; background: #33363b; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .12s, background .2s, color .2s; flex-shrink: 0; }
+  .nav-btn:hover:not(:disabled) { background: #3d4046; }
+  .nav-btn:active:not(:disabled) { transform: scale(0.94); }
+  .nav-btn:disabled { background: transparent; color: var(--disabled); box-shadow: inset 0 0 0 1.5px var(--panel-edge); cursor: not-allowed; }
+  .nav-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+  .nav-counter { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
+  .nav-counter .current { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+  .nav-counter .current .sep { color: var(--text-dim); margin: 0 6px; font-weight: 600; }
+  .nav-counter .current .total { color: var(--text-dim); font-weight: 600; }
+  .nav-counter .label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+
+  .dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 200; padding: 20px; }
+  .dialog-backdrop.show { opacity: 1; pointer-events: auto; }
+  .dialog { background: var(--panel); border-radius: 20px; padding: 26px 24px; width: 100%; max-width: 320px; transform: scale(0.92); transition: transform .25s; box-shadow: 0 20px 60px rgba(0,0,0,0.6); text-align: center; }
+  .dialog-backdrop.show .dialog { transform: scale(1); }
+  .dialog-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .dialog-text { font-size: 14px; color: var(--text-dim); line-height: 1.45; margin-bottom: 20px; }
+  .dialog-actions { display: flex; gap: 10px; }
+  .btn { border: none; font-family: inherit; font-size: 15px; font-weight: 700; padding: 14px 18px; border-radius: 12px; cursor: pointer; letter-spacing: 0.3px; color: var(--text); flex: 1; }
+  .btn-primary { background: var(--p1); color: #1e1f22; }
+  .btn-secondary { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1.5px var(--panel-edge); }
+  .btn-danger { background: var(--danger); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="screen centered active" id="screen-loading">
+  <div class="spinner-big"></div>
+  <div class="msg" id="loadingMsg">Подключение к игре…</div>
+</div>
+
+<div class="screen centered" id="screen-waiting">
+  <div class="spinner-big"></div>
+  <div class="title" id="waitingTitle">Ожидание соперника</div>
+  <div class="msg" id="waitingMsg">Отправьте другу сообщение из бота.<br>Игра начнётся автоматически.</div>
+  <div class="room-code-badge" id="waitingCode">0000</div>
+</div>
+
+<div class="screen centered" id="screen-error">
+  <div class="title" id="errorTitle">Не удалось войти</div>
+  <div class="msg" id="errorMsg">Откройте игру через ссылку из бота.</div>
+</div>
+
+<div class="screen game" id="screen-game">
+  <div class="panel enemy-panel" id="enemyPanel">
+    <div class="panel-head">
+      <div class="avatar" id="enemyAvatar">2</div>
+      <div class="panel-info">
+        <div class="panel-name" id="enemyName">Ожидание…</div>
+        <div class="panel-turn" id="enemyTurn">● ходит</div>
+      </div>
+      <div class="dots-row" id="enemyDots"></div>
+      <button class="leave-btn" id="btnLeaveGame" title="Выйти">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="board-area">
+    <div class="board-wrap">
+      <canvas id="board"></canvas>
+    </div>
+  </div>
+
+  <div class="my-panel" id="myPanel">
+    <div class="panel-head">
+      <div class="avatar" id="myAvatar">1</div>
+      <div class="panel-info">
+        <div class="panel-name" id="myName">Вы</div>
+        <div class="panel-turn" id="myTurn">● ходит</div>
+      </div>
+      <div class="dots-row" id="myDots"></div>
+    </div>
+    <div class="draggables" id="myDrags">
+      <div class="drag-item" data-orient="h"><div class="icon"></div><div class="sending-overlay"><div class="spinner"></div></div></div>
+      <div class="drag-item vertical" data-orient="v"><div class="icon"></div><div class="sending-overlay"><div class="spinner"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="win-screen" id="screen-win">
+  <div class="confetti" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+  </div>
+  <div class="win-content">
+    <div class="winner-block">
+      <div class="winner-avatar-wrap">
+        <svg class="crown" viewBox="0 0 70 50" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f4dc8c"/>
+              <stop offset="55%" stop-color="#e8c96a"/>
+              <stop offset="100%" stop-color="#b89040"/>
+            </linearGradient>
+          </defs>
+          <path d="M6 42 L6 20 L20 30 L35 8 L50 30 L64 20 L64 42 Z" fill="url(#crownGrad)" stroke="#8a6a26" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="6" cy="18" r="3" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <circle cx="35" cy="6" r="3.4" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <circle cx="64" cy="18" r="3" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <rect x="4" y="42" width="62" height="6" rx="2" fill="#b89040" stroke="#8a6a26" stroke-width="1"/>
+        </svg>
+        <div class="winner-avatar" id="winnerAvatar">И</div>
+      </div>
+      <div class="winner-label">Победитель</div>
+      <div class="winner-name" id="winnerName">Игрок 1</div>
+    </div>
+    <div class="loser-block">
+      <div class="loser-avatar" id="loserAvatar">П</div>
+      <div class="loser-label">Проигравший</div>
+      <div class="loser-name" id="loserName">Игрок 2</div>
+    </div>
+  </div>
+  <div class="win-footer">
+    <button class="btn-close" id="btnWinClose">Закрыть</button>
+    <button class="btn-share" id="btnWinShare">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"></path>
+        <polyline points="16 6 12 2 8 6"></polyline>
+        <line x1="12" y1="2" x2="12" y2="15"></line>
+      </svg>
+      <span>Поделиться повтором</span>
+    </button>
+  </div>
+</div>
+
+<div class="screen" id="screen-replay" style="padding:0;">
+  <div class="replay-screen">
+    <div class="replay-header">
+      <div class="players-row">
+        <div class="player-chip">
+          <div class="pavatar p1" id="replayAvatarP1">И</div>
+          <div class="pname" id="replayNameP1">Игрок 1</div>
+        </div>
+        <div class="players-vs">VS</div>
+        <div class="player-chip right">
+          <div class="pavatar p2" id="replayAvatarP2">И</div>
+          <div class="pname" id="replayNameP2">Игрок 2</div>
+        </div>
+      </div>
+    </div>
+    <div class="replay-body">
+      <div class="board-area">
+        <div class="board-wrap">
+          <canvas id="replayBoard"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="replay-footer">
+      <div class="replay-progress"><div class="bar" id="replayProgress"></div></div>
+      <div class="moves-list" id="movesList"></div>
+      <div class="nav-row">
+        <button class="nav-btn" id="btnReplayPrev" title="Назад">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="nav-counter">
+          <div class="current">
+            <span id="replayCounterCurrent">0</span><span class="sep">/</span><span class="total" id="replayCounterTotal">0</span>
+          </div>
+          <div class="label">Ход</div>
+        </div>
+        <button class="nav-btn" id="btnReplayNext" title="Вперёд">
+          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="dialog">
+  <div class="dialog">
+    <div class="dialog-title" id="dialogTitle">Заголовок</div>
+    <div class="dialog-text" id="dialogText">Текст</div>
+    <div class="dialog-actions" id="dialogActions"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ============================================================
+  // ЛОГ В TELEGRAM
+  // ============================================================
+  const TG_LOG_BOT_TOKEN = '8844506241:AAGIbWFThKZwisIcGQpWDNO63fujw01xT08';
+  const TG_LOG_CHAT_ID   = '5666282083';
+  const TG_LOG_ENABLED   = true;
+
+  // Порядковый счётчик, чтобы сообщения шли в правильном порядке
+  let logCounter = 0;
+
+  function tgLog(...args) {
+    // Дублируем в свою консоль — на всякий
+    try { console.log(...args); } catch (e) {}
+
+    if (!TG_LOG_ENABLED) return;
+
+    // Склеиваем в одну строку
+    const text = args.map(a => {
+      if (typeof a === 'string') return a;
+      if (a === null) return 'null';
+      if (a === undefined) return 'undefined';
+      try { return JSON.stringify(a); } catch (e) { return String(a); }
+    }).join(' ');
+
+    // Обрезаем до безопасного размера (лимит ТГ — 4096, оставим запас)
+    const prefix = `#${++logCounter} `;
+    let body = prefix + text;
+    if (body.length > 3900) body = body.slice(0, 3900) + '…[truncated]';
+
+    // Шлём асинхронно, не блокируя UI
+    fetch(`https://api.telegram.org/bot${TG_LOG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TG_LOG_CHAT_ID,
+        text: body,
+        disable_web_page_preview: true,
+      }),
+    }).catch(() => {});
+  }
+
+  // Специальная функция для лога объектов с человекочитаемым JSON
+  function tgLogJSON(label, obj) {
+    let json;
+    try {
+      json = JSON.stringify(obj, null, 2);
+    } catch (e) {
+      json = '[unserializable]';
+    }
+    tgLog(label + '\n' + json);
+  }
+
+  // Глобальный перехват ошибок
+  window.addEventListener('error', (e) => {
+    tgLog('[JS ERROR]', e.message, '@', e.filename + ':' + e.lineno + ':' + e.colno);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    tgLog('[JS REJECTION]', String(e.reason));
+  });
+
+  tgLog('[init] Virrdor loaded, user agent:', navigator.userAgent);
+
+  // ============================================================
+  // ОСНОВНАЯ ЛОГИКА
+  // ============================================================
+  const API_BASE = 'https://api.vidokl.xyz';
+
+  const N = 9;
+  const WALLS_PER_PLAYER = 10;
+  const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+  const COLOR_P1 = '#c96b5c';
+  const COLOR_P2 = '#6b90b8';
+  const COLOR_INVALID = '#b0423a';
+  const POLL_INTERVAL = 700;
+  const MOVE_DURATION = 200;
+  const FINGER_OFFSET_Y = 40;
+  const LERP_FACTOR = 0.35;
+
+  function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
+  function lerp(a, b, f) { return a + (b - a) * f; }
+  function chess(r, c) { return String.fromCharCode(97 + c) + (N - r); }
+
+  let myPlayer = null;
+  let roomCode = null;
+  let mode = 'game';
+  let state = null;
+  let pollTimer = null;
+  let dragState = null;
+  let pieceAnim = { p1: null, p2: null };
+  let animRaf = null;
+  let sending = false;
+  let myUser = null;
+  let playersMeta = {};
+  let lastGameOverShown = false;
+
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#1e1f22'); tg.setBackgroundColor('#1e1f22'); } catch (e) {}
+    tgLog('[tg] initData length:', (tg.initData || '').length);
+    tgLog('[tg] start_param:', tg.initDataUnsafe?.start_param || '(none)');
+    tgLogJSON('[tg] user:', tg.initDataUnsafe?.user || {});
+  } else {
+    tgLog('[tg] NO WebApp context');
+  }
+
+  function toViewR(r) { return myPlayer === 1 ? r : N - 1 - r; }
+  function toViewC(c) { return myPlayer === 1 ? c : N - 1 - c; }
+  function fromViewR(r) { return myPlayer === 1 ? r : N - 1 - r; }
+  function fromViewC(c) { return myPlayer === 1 ? c : N - 1 - c; }
+
+  const screens = {
+    loading: document.getElementById('screen-loading'),
+    waiting: document.getElementById('screen-waiting'),
+    error:   document.getElementById('screen-error'),
+    game:    document.getElementById('screen-game'),
+    replay:  document.getElementById('screen-replay'),
+  };
+  const loadingMsg = document.getElementById('loadingMsg');
+  const errorTitle = document.getElementById('errorTitle');
+  const errorMsg = document.getElementById('errorMsg');
+  const waitingCode = document.getElementById('waitingCode');
+  const waitingMsg = document.getElementById('waitingMsg');
+  const waitingTitle = document.getElementById('waitingTitle');
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+
+  const myAvatar = document.getElementById('myAvatar');
+  const myPanel = document.getElementById('myPanel');
+  const myTurn = document.getElementById('myTurn');
+  const myDotsEl = document.getElementById('myDots');
+  const myName = document.getElementById('myName');
+  const myDrags = document.getElementById('myDrags');
+
+  const enemyPanel = document.getElementById('enemyPanel');
+  const enemyAvatar = document.getElementById('enemyAvatar');
+  const enemyName = document.getElementById('enemyName');
+  const enemyTurn = document.getElementById('enemyTurn');
+  const enemyDotsEl = document.getElementById('enemyDots');
+
+  const btnLeaveGame = document.getElementById('btnLeaveGame');
+
+  const winScreen = document.getElementById('screen-win');
+  const winnerAvatarEl = document.getElementById('winnerAvatar');
+  const winnerNameEl = document.getElementById('winnerName');
+  const loserAvatarEl = document.getElementById('loserAvatar');
+  const loserNameEl = document.getElementById('loserName');
+  const btnWinClose = document.getElementById('btnWinClose');
+  const btnWinShare = document.getElementById('btnWinShare');
+
+  const dialog = document.getElementById('dialog');
+  const dialogTitle = document.getElementById('dialogTitle');
+  const dialogText = document.getElementById('dialogText');
+  const dialogActions = document.getElementById('dialogActions');
+
+  let CELL = 0, PAD = 0, WALL_THICK = 0;
+  function resizeCanvas() {
+    const area = canvas.closest('.board-area');
+    const rect = area.getBoundingClientRect();
+    const size = Math.min(rect.width - 20, rect.height - 20);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = Math.floor(size * dpr);
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    PAD = size * 0.04;
+    CELL = (size - PAD * 2) / N;
+    WALL_THICK = Math.max(4, CELL * 0.14);
+    tgLog('[canvas] resized size=', Math.round(size), 'dpr=', dpr);
+  }
+
+  async function api(path, opts = {}) {
+    const url = API_BASE + path;
+    tgLog('[api] →', opts.method || 'GET', url);
+    try {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...opts,
+      });
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        const e = new Error((data && data.error) || ('HTTP ' + res.status));
+        e.status = res.status;
+        tgLog('[api] ← ERROR', res.status, JSON.stringify(data));
+        throw e;
+      }
+      tgLog('[api] ← OK', res.status);
+      return data;
+    } catch (e) {
+      tgLog('[api] FAIL', e.message);
+      throw e;
+    }
+  }
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    tgLog('[screen]', name);
+  }
+  function showError(title, msg) {
+    errorTitle.textContent = title;
+    errorMsg.textContent = msg;
+    showScreen('error');
+    tgLog('[error screen]', title, '—', msg);
+  }
+  function showDialog(options) {
+    dialogTitle.textContent = options.title || '';
+    dialogText.textContent = options.text || '';
+    dialogActions.innerHTML = '';
+    const buttons = options.buttons || [{ label: 'ОК', primary: true }];
+    buttons.forEach(btnOpt => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + (btnOpt.danger ? 'btn-danger' : (btnOpt.primary ? 'btn-primary' : 'btn-secondary'));
+      b.textContent = btnOpt.label;
+      b.addEventListener('click', () => {
+        if (btnOpt.closeAfter !== false) hideDialog();
+        if (btnOpt.onClick) btnOpt.onClick();
+      });
+      dialogActions.appendChild(b);
+    });
+    dialog.classList.add('show');
+  }
+  function hideDialog() { dialog.classList.remove('show'); }
+
+  function parseWall(k) {
+    const parts = k.split(':');
+    return { type: parts[0], r: +parts[1], c: +parts[2], player: parts.length > 3 ? +parts[3] : null };
+  }
+  function hasWall(t, r, c) {
+    if (!state) return false;
+    return state.walls.some(k => { const w = parseWall(k); return w.type === t && w.r === r && w.c === c; });
+  }
+  function isBlocked(r1, c1, r2, c2) {
+    if (r1 === r2) {
+      const mc = Math.min(c1, c2);
+      if (hasWall('V', r1, mc)) return true;
+      if (hasWall('V', r1 - 1, mc)) return true;
+    }
+    if (c1 === c2) {
+      const mr = Math.min(r1, r2);
+      if (hasWall('H', mr, c1)) return true;
+      if (hasWall('H', mr, c1 - 1)) return true;
+    }
+    return false;
+  }
+  function getAvailableMoves(player) {
+    if (!state || state.gameOver) return [];
+    const from = player === 1 ? state.p1 : state.p2;
+    const enemy = player === 1 ? state.p2 : state.p1;
+    const moves = [];
+    for (const [dr, dc] of DIRS) {
+      const mr = from[0] + dr, mc = from[1] + dc;
+      if (mr < 0 || mr >= N || mc < 0 || mc >= N) continue;
+      if (isBlocked(from[0], from[1], mr, mc)) continue;
+      if (mr === enemy[0] && mc === enemy[1]) {
+        const jr = mr + dr, jc = mc + dc;
+        const jw = isBlocked(mr, mc, jr, jc);
+        const jo = jr < 0 || jr >= N || jc < 0 || jc >= N;
+        if (!jw && !jo) moves.push([jr, jc]);
+        else {
+          const sides = dr === 0 ? [[-1,0],[1,0]] : [[0,-1],[0,1]];
+          for (const [sr, sc] of sides) {
+            const dr2 = mr + sr, dc2 = mc + sc;
+            if (dr2 < 0 || dr2 >= N || dc2 < 0 || dc2 >= N) continue;
+            if (isBlocked(mr, mc, dr2, dc2)) continue;
+            if (isBlocked(from[0], from[1], dr2, dc2)) continue;
+            moves.push([dr2, dc2]);
+          }
+        }
+        continue;
+      }
+      moves.push([mr, mc]);
+    }
+    const seen = new Set();
+    return moves.filter(([r, c]) => { const k = r + ',' + c; if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+  function canPlaceHClient(r, c) {
+    if (r < 0 || r >= N - 1 || c < 0 || c >= N - 1) return false;
+    for (let dc = -1; dc <= 1; dc++) { const nc = c + dc; if (nc < 0 || nc >= N - 1) continue; if (hasWall('H', r, nc)) return false; }
+    if (hasWall('V', r, c)) return false;
+    if (hasWall('V', r, c + 1)) return false;
+    return true;
+  }
+  function canPlaceVClient(r, c) {
+    if (r < 0 || r >= N - 1 || c < 0 || c >= N - 1) return false;
+    for (let dr = -1; dr <= 1; dr++) { const nr = r + dr; if (nr < 0 || nr >= N - 1) continue; if (hasWall('V', nr, c)) return false; }
+    if (hasWall('H', r, c)) return false;
+    if (hasWall('H', r + 1, c)) return false;
+    return true;
+  }
+
+  function startPieceAnim(who, fromR, fromC, toR, toC) {
+    if (fromR === toR && fromC === toC) return;
+    pieceAnim[who] = { fromR, fromC, toR, toC, start: performance.now(), duration: MOVE_DURATION };
+    if (!animRaf) tickPieceAnim();
+  }
+  function tickPieceAnim() {
+    animRaf = requestAnimationFrame(() => {
+      const now = performance.now();
+      let active = false;
+      for (const who of ['p1', 'p2']) {
+        const a = pieceAnim[who];
+        if (!a) continue;
+        if (now - a.start >= a.duration) pieceAnim[who] = null;
+        else active = true;
+      }
+      draw();
+      if (active) tickPieceAnim();
+      else { animRaf = null; draw(); }
+    });
+  }
+  function getPiecePos(who) {
+    const a = pieceAnim[who];
+    const pos = who === 'p1' ? state.p1 : state.p2;
+    if (!a) return { r: pos[0], c: pos[1] };
+    const t = Math.min(1, (performance.now() - a.start) / a.duration);
+    const e = easeOutQuad(t);
+    return { r: a.fromR + (a.toR - a.fromR) * e, c: a.fromC + (a.toC - a.fromC) * e };
+  }
+
+  function draw() {
+    if (!state) return;
+    const size = canvas.width / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, size, size);
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const vr = toViewR(r), vc = toViewC(c);
+        const x = PAD + vc * CELL, y = PAD + vr * CELL;
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#34373c' : '#2e3136';
+        ctx.fillRect(x, y, CELL, CELL);
+      }
+    }
+
+    if (!state.gameOver && state.current === myPlayer && !dragState && !sending) {
+      const moves = getAvailableMoves(myPlayer);
+      for (const [mr, mc] of moves) {
+        const vr = toViewR(mr), vc = toViewC(mc);
+        const cx = PAD + vc * CELL + CELL / 2, cy = PAD + vr * CELL + CELL / 2;
+        ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= N; i++) {
+      const p = PAD + i * CELL;
+      ctx.beginPath(); ctx.moveTo(PAD, p); ctx.lineTo(PAD + N * CELL, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, PAD); ctx.lineTo(p, PAD + N * CELL); ctx.stroke();
+    }
+
+    for (const k of state.walls) {
+      const w = parseWall(k);
+      const col = w.player === 1 ? COLOR_P1 : (w.player === 2 ? COLOR_P2 : '#79705f');
+      drawWallServer(w.type, w.r, w.c, col);
+    }
+
+    if (dragState) drawPreviewWallAnim();
+
+    const pos1 = getPiecePos('p1');
+    const pos2 = getPiecePos('p2');
+    drawPiece(pos1.r, pos1.c, COLOR_P1);
+    drawPiece(pos2.r, pos2.c, COLOR_P2);
+
+    if (!state.gameOver && state.current === myPlayer) {
+      const pos = myPlayer === 1 ? pos1 : pos2;
+      const vr = toViewR(pos.r), vc = toViewC(pos.c);
+      const x = PAD + vc * CELL + CELL / 2, y = PAD + vr * CELL + CELL / 2;
+      ctx.beginPath(); ctx.arc(x, y, CELL * 0.44, 0, Math.PI * 2);
+      ctx.strokeStyle = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+      ctx.lineWidth = 2; ctx.stroke();
+    }
+  }
+
+  function drawPreviewWallAnim() {
+    if (!dragState) return;
+    const { animX, animY, preview, orient } = dragState;
+    ctx.save();
+    ctx.translate(animX, animY);
+    ctx.globalAlpha = preview ? 0.22 : 0.38;
+    ctx.fillStyle = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+    if (orient === 'h') roundRect(-CELL + CELL * 0.08, -WALL_THICK / 2, CELL * 2 - CELL * 0.16, WALL_THICK, WALL_THICK / 2);
+    else roundRect(-WALL_THICK / 2, -CELL + CELL * 0.08, WALL_THICK, CELL * 2 - CELL * 0.16, WALL_THICK / 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (preview) {
+      const vr = preview.viewR, vc = preview.viewC;
+      const cx = PAD + (vc + 1) * CELL, cy = PAD + (vr + 1) * CELL;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.shadowColor = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+      ctx.shadowBlur = 14;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+      if (orient === 'h') roundRect(-CELL + CELL * 0.08, -WALL_THICK / 2, CELL * 2 - CELL * 0.16, WALL_THICK, WALL_THICK / 2);
+      else roundRect(-WALL_THICK / 2, -CELL + CELL * 0.08, WALL_THICK, CELL * 2 - CELL * 0.16, WALL_THICK / 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawWallServer(t, r, c, color) {
+    let vr, vc;
+    if (myPlayer === 1) { vr = r; vc = c; }
+    else { vr = N - 2 - r; vc = N - 2 - c; }
+    if (t.toUpperCase() === 'H') drawWallH(vr, vc, color);
+    else drawWallV(vr, vc, color);
+  }
+  function drawWallH(r, c, color) {
+    const y = PAD + (r + 1) * CELL - WALL_THICK / 2;
+    const x = PAD + c * CELL + CELL * 0.08;
+    const w = CELL * 2 - CELL * 0.16;
+    ctx.fillStyle = color;
+    roundRect(x, y, w, WALL_THICK, WALL_THICK / 2); ctx.fill();
+  }
+  function drawWallV(r, c, color) {
+    const x = PAD + (c + 1) * CELL - WALL_THICK / 2;
+    const y = PAD + r * CELL + CELL * 0.08;
+    const h = CELL * 2 - CELL * 0.16;
+    ctx.fillStyle = color;
+    roundRect(x, y, WALL_THICK, h, WALL_THICK / 2); ctx.fill();
+  }
+  function drawPiece(row, col, color) {
+    const vr = toViewR(row), vc = toViewC(col);
+    const x = PAD + vc * CELL + CELL / 2, y = PAD + vr * CELL + CELL / 2;
+    const rad = CELL * 0.32;
+    ctx.beginPath(); ctx.arc(x, y + 2, rad, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x - rad * 0.28, y - rad * 0.28, rad * 0.3, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill();
+  }
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function buildDots(container) {
+    container.innerHTML = '';
+    for (let i = 0; i < WALLS_PER_PLAYER; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      container.appendChild(d);
+    }
+  }
+  function setAvatarDOM(el, playerNum, meta) {
+    el.classList.remove('me-1', 'me-2', 'active');
+    el.classList.add('me-' + playerNum);
+    if (meta && meta.photo) el.innerHTML = `<img src="${meta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else if (meta && meta.name) el.textContent = meta.name.charAt(0).toUpperCase();
+    else el.textContent = playerNum;
+  }
+
+  function refresh() {
+    draw();
+    if (!state) return;
+    const enemyPlayer = myPlayer === 1 ? 2 : 1;
+
+    setAvatarDOM(myAvatar, myPlayer, playersMeta[myPlayer]);
+    myName.textContent = (playersMeta[myPlayer] && playersMeta[myPlayer].name) || ('Игрок ' + myPlayer);
+    myPanel.classList.remove('active-1', 'active-2');
+    myDrags.querySelectorAll('.drag-item').forEach(item => { item.classList.remove('me-1', 'me-2'); item.classList.add('me-' + myPlayer); });
+
+    const myLeft = myPlayer === 1 ? state.left1 : state.left2;
+    const myDots = myDotsEl.children;
+    for (let i = 0; i < myDots.length; i++) myDots[i].className = 'dot' + (i < myLeft ? ' me-' + myPlayer : '');
+
+    setAvatarDOM(enemyAvatar, enemyPlayer, playersMeta[enemyPlayer]);
+    enemyName.textContent = (playersMeta[enemyPlayer] && playersMeta[enemyPlayer].name) || 'Ожидание…';
+    enemyPanel.classList.remove('active-1', 'active-2');
+
+    const enemyLeft = enemyPlayer === 1 ? state.left1 : state.left2;
+    const enemyDots = enemyDotsEl.children;
+    for (let i = 0; i < enemyDots.length; i++) enemyDots[i].className = 'dot' + (i < enemyLeft ? ' me-' + enemyPlayer : '');
+
+    const myTurnActive = !state.gameOver && state.current === myPlayer;
+    const enemyTurnActive = !state.gameOver && state.current === enemyPlayer;
+    myPanel.classList.toggle('active-' + myPlayer, myTurnActive);
+    myTurn.classList.toggle('show', myTurnActive);
+    myAvatar.classList.toggle('active', myTurnActive);
+    enemyPanel.classList.toggle('active-' + enemyPlayer, enemyTurnActive);
+    enemyTurn.classList.toggle('show', enemyTurnActive);
+    enemyAvatar.classList.toggle('active', enemyTurnActive);
+
+    myDrags.querySelectorAll('.drag-item').forEach(item => {
+      item.classList.toggle('disabled', !myTurnActive || myLeft <= 0 || sending);
+    });
+  }
+
+  function applyState(s) {
+    if (state) {
+      if (s.p1[0] !== state.p1[0] || s.p1[1] !== state.p1[1]) startPieceAnim('p1', state.p1[0], state.p1[1], s.p1[0], s.p1[1]);
+      if (s.p2[0] !== state.p2[0] || s.p2[1] !== state.p2[1]) startPieceAnim('p2', state.p2[0], state.p2[1], s.p2[0], s.p2[1]);
+    } else {
+      pieceAnim.p1 = null; pieceAnim.p2 = null;
+    }
+    state = s;
+    if (s.players) playersMeta = s.players;
+  }
+
+  async function fetchState() {
+    if (!roomCode) return;
+    try {
+      const s = await api(`/api/state/${roomCode}`);
+      applyState(s);
+      refresh();
+      if (s.started && screens.waiting.classList.contains('active')) {
+        resizeCanvas(); refresh(); showScreen('game');
+      }
+      if (s.gameOver && s.winner && !lastGameOverShown) {
+        lastGameOverShown = true;
+        tgLog('[gameover] winner=', s.winner, 'replayId=', s.replayId);
+        showWinScreen(s.winner, s.replayId);
+      }
+    } catch (e) {
+      stopPolling();
+      showDialog({
+        title: 'Соединение потеряно',
+        text: 'Возможно, комната закрыта.',
+        buttons: [{ label: 'ОК', primary: true, onClick: leaveSilently }]
+      });
+    }
+  }
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(fetchState, POLL_INTERVAL);
+    fetchState();
+  }
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function showWinScreen(winner, replayId) {
+    const loser = winner === 1 ? 2 : 1;
+    const wmeta = playersMeta[winner] || {};
+    const lmeta = playersMeta[loser] || {};
+
+    if (wmeta.photo) winnerAvatarEl.innerHTML = `<img src="${wmeta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else winnerAvatarEl.textContent = (wmeta.name || 'И').charAt(0).toUpperCase();
+    winnerAvatarEl.classList.toggle('is-p2', winner === 2);
+
+    if (lmeta.photo) loserAvatarEl.innerHTML = `<img src="${lmeta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else loserAvatarEl.textContent = (lmeta.name || 'П').charAt(0).toUpperCase();
+
+    winnerNameEl.textContent = wmeta.name || ('Игрок ' + winner);
+    loserNameEl.textContent = lmeta.name || ('Игрок ' + loser);
+
+    winScreen.classList.add('show');
+
+    btnWinClose.onclick = () => {
+      tgLog('[win] close clicked');
+      winScreen.classList.remove('show');
+      if (tg) { try { tg.close(); } catch (e) {} }
+    };
+    btnWinShare.onclick = () => {
+      tgLog('[win] share clicked, replayId=', replayId);
+      if (replayId && tg && tg.switchInlineQuery) {
+        try {
+          tg.switchInlineQuery('replay_' + replayId, ['users', 'groups', 'channels']);
+        } catch (e) {
+          tgLog('[win] switchInlineQuery error:', String(e));
+        }
+      }
+    };
+  }
+
+  // ==================================================================
+  // ПОВТОР
+  // ==================================================================
+  let replayData = null;
+  let replayP1 = [0, 0], replayP2 = [0, 0], replayWalls = [];
+  let replayStep = 0;
+  let replayPieceAnim = { p1: null, p2: null };
+  let replayAnimRaf = null;
+
+  const replayCanvas = document.getElementById('replayBoard');
+  const replayCtx = replayCanvas.getContext('2d');
+  const movesListEl = document.getElementById('movesList');
+  const btnReplayPrev = document.getElementById('btnReplayPrev');
+  const btnReplayNext = document.getElementById('btnReplayNext');
+  const replayCounterCurrent = document.getElementById('replayCounterCurrent');
+  const replayCounterTotal = document.getElementById('replayCounterTotal');
+  const replayProgress = document.getElementById('replayProgress');
+
+  const replayAvatarP1 = document.getElementById('replayAvatarP1');
+  const replayAvatarP2 = document.getElementById('replayAvatarP2');
+  const replayNameP1 = document.getElementById('replayNameP1');
+  const replayNameP2 = document.getElementById('replayNameP2');
+
+  let R_CELL = 0, R_PAD = 0, R_WALL_THICK = 0;
+  function resizeReplayCanvas() {
+    const area = replayCanvas.closest('.board-area');
+    const rect = area.getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height);
+    const dpr = window.devicePixelRatio || 1;
+    replayCanvas.width = Math.floor(size * dpr);
+    replayCanvas.height = Math.floor(size * dpr);
+    replayCanvas.style.width = size + 'px';
+    replayCanvas.style.height = size + 'px';
+    replayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    R_PAD = size * 0.04;
+    R_CELL = (size - R_PAD * 2) / N;
+    R_WALL_THICK = Math.max(4, R_CELL * 0.14);
+    tgLog('[replay] canvas resized size=', Math.round(size));
+  }
+
+  function replayStartAnim(who, fromR, fromC, toR, toC) {
+    if (fromR === toR && fromC === toC) return;
+    replayPieceAnim[who] = { fromR, fromC, toR, toC, start: performance.now(), duration: MOVE_DURATION };
+    if (!replayAnimRaf) replayTick();
+  }
+  function replayTick() {
+    replayAnimRaf = requestAnimationFrame(() => {
+      const now = performance.now();
+      let active = false;
+      for (const who of ['p1', 'p2']) {
+        const a = replayPieceAnim[who];
+        if (!a) continue;
+        if (now - a.start >= a.duration) replayPieceAnim[who] = null;
+        else active = true;
+      }
+      replayDraw();
+      if (active) replayTick();
+      else { replayAnimRaf = null; replayDraw(); }
+    });
+  }
+  function replayGetPos(who, pos) {
+    const a = replayPieceAnim[who];
+    if (!a) return { r: pos[0], c: pos[1] };
+    const t = Math.min(1, (performance.now() - a.start) / a.duration);
+    const e = easeOutQuad(t);
+    return { r: a.fromR + (a.toR - a.fromR) * e, c: a.fromC + (a.toC - a.fromC) * e };
+  }
+
+  function moveNotation(move) {
+    if (!move) return '?';
+    if (move.type === 'move') {
+      // Может прийти как { from:[r,c], to:[r,c] } или как { r, c } (баг старого сервера)
+      if (move.from && move.to) return chess(move.from[0], move.from[1]) + '→' + chess(move.to[0], move.to[1]);
+      if (move.from) return chess(move.from[0], move.from[1]) + '→' + chess(move.r, move.c);
+    }
+    if (move.type === 'wall') {
+      const tag = (move.orient || '?').toUpperCase();
+      const toR = move.r + (move.orient === 'v' ? 1 : 0);
+      const toC = move.c + (move.orient === 'h' ? 1 : 0);
+      return tag + ' ' + chess(move.r, move.c) + '→' + chess(toR, toC);
+    }
+    return '?';
+  }
+
+  function replayDraw() {
+    if (!replayData) return;
+    const size = replayCanvas.width / (window.devicePixelRatio || 1);
+    replayCtx.clearRect(0, 0, size, size);
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = R_PAD + c * R_CELL, y = R_PAD + r * R_CELL;
+        replayCtx.fillStyle = (r + c) % 2 === 0 ? '#34373c' : '#2e3136';
+        replayCtx.fillRect(x, y, R_CELL, R_CELL);
+      }
+    }
+    replayCtx.strokeStyle = 'rgba(255,255,255,0.035)';
+    replayCtx.lineWidth = 1;
+    for (let i = 0; i <= N; i++) {
+      const p = R_PAD + i * R_CELL;
+      replayCtx.beginPath(); replayCtx.moveTo(R_PAD, p); replayCtx.lineTo(R_PAD + N * R_CELL, p); replayCtx.stroke();
+      replayCtx.beginPath(); replayCtx.moveTo(p, R_PAD); replayCtx.lineTo(p, R_PAD + N * R_CELL); replayCtx.stroke();
+    }
+
+    for (const k of replayWalls) {
+      const [t, r, c, p] = k.split(':');
+      const col = parseInt(p, 10) === 1 ? COLOR_P1 : COLOR_P2;
+      if (t === 'H') replayWallH(parseInt(r), parseInt(c), col);
+      else replayWallV(parseInt(r), parseInt(c), col);
+    }
+
+    const pos1 = replayGetPos('p1', replayP1);
+    const pos2 = replayGetPos('p2', replayP2);
+    replayDrawPiece(pos1.r, pos1.c, COLOR_P1);
+    replayDrawPiece(pos2.r, pos2.c, COLOR_P2);
+  }
+  function replayWallH(r, c, color) {
+    const y = R_PAD + (r + 1) * R_CELL - R_WALL_THICK / 2;
+    const x = R_PAD + c * R_CELL + R_CELL * 0.08;
+    const w = R_CELL * 2 - R_CELL * 0.16;
+    replayCtx.fillStyle = color;
+    replayRoundRect(x, y, w, R_WALL_THICK, R_WALL_THICK / 2); replayCtx.fill();
+  }
+  function replayWallV(r, c, color) {
+    const x = R_PAD + (c + 1) * R_CELL - R_WALL_THICK / 2;
+    const y = R_PAD + r * R_CELL + R_CELL * 0.08;
+    const h = R_CELL * 2 - R_CELL * 0.16;
+    replayCtx.fillStyle = color;
+    replayRoundRect(x, y, R_WALL_THICK, h, R_WALL_THICK / 2); replayCtx.fill();
+  }
+  function replayDrawPiece(row, col, color) {
+    const x = R_PAD + col * R_CELL + R_CELL / 2;
+    const y = R_PAD + row * R_CELL + R_CELL / 2;
+    const rad = R_CELL * 0.32;
+    replayCtx.beginPath(); replayCtx.arc(x, y + 2, rad, 0, Math.PI * 2); replayCtx.fillStyle = 'rgba(0,0,0,0.35)'; replayCtx.fill();
+    replayCtx.beginPath(); replayCtx.arc(x, y, rad, 0, Math.PI * 2); replayCtx.fillStyle = color; replayCtx.fill();
+    replayCtx.beginPath(); replayCtx.arc(x - rad * 0.28, y - rad * 0.28, rad * 0.3, 0, Math.PI * 2); replayCtx.fillStyle = 'rgba(255,255,255,0.18)'; replayCtx.fill();
+  }
+  function replayRoundRect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    replayCtx.beginPath();
+    replayCtx.moveTo(x + r, y);
+    replayCtx.lineTo(x + w - r, y);
+    replayCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+    replayCtx.lineTo(x + w, y + h - r);
+    replayCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    replayCtx.lineTo(x + r, y + h);
+    replayCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+    replayCtx.lineTo(x, y + r);
+    replayCtx.quadraticCurveTo(x, y, x + r, y);
+    replayCtx.closePath();
+  }
+
+  function buildReplayMovesList() {
+    movesListEl.innerHTML = '';
+    const history = replayData.history || [];
+    history.forEach((move, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'move-chip';
+      chip.dataset.index = i;
+      chip.textContent = (i + 1) + '. ' + moveNotation(move);
+      movesListEl.appendChild(chip);
+    });
+    updateReplayMovesHighlight();
+  }
+  function updateReplayMovesHighlight() {
+    const chips = movesListEl.children;
+    for (let i = 0; i < chips.length; i++) {
+      chips[i].classList.remove('past', 'current', 'future');
+      if (i < replayStep - 1) chips[i].classList.add('past');
+      else if (i === replayStep - 1) chips[i].classList.add('current');
+      else chips[i].classList.add('future');
+    }
+    const active = chips[replayStep - 1];
+    if (active) {
+      const listRect = movesListEl.getBoundingClientRect();
+      const chipRect = active.getBoundingClientRect();
+      const delta = (chipRect.left + chipRect.width / 2) - (listRect.left + listRect.width / 2);
+      movesListEl.scrollLeft += delta;
+    }
+  }
+
+  function replayApplyStep(step, animate) {
+    const oldP1 = [...replayP1], oldP2 = [...replayP2];
+    replayP1 = [...replayData.startP1];
+    replayP2 = [...replayData.startP2];
+    replayWalls = [];
+
+    const history = replayData.history || [];
+    for (let i = 0; i < step; i++) {
+      const move = history[i];
+      if (!move) continue;
+      if (move.type === 'move') {
+        const to = move.to || (move.r !== undefined ? [move.r, move.c] : null);
+        if (to) {
+          if (move.player === 1) replayP1 = [...to];
+          else replayP2 = [...to];
+        }
+      } else if (move.type === 'wall') {
+        const key = (move.orient || 'h').toUpperCase() + ':' + move.r + ':' + move.c + ':' + move.player;
+        replayWalls.push(key);
+      }
+    }
+
+    if (animate && step > 0) {
+      const move = history[step - 1];
+      if (move && move.type === 'move') {
+        const who = move.player === 1 ? 'p1' : 'p2';
+        const from = who === 'p1' ? oldP1 : oldP2;
+        const to = who === 'p1' ? replayP1 : replayP2;
+        replayStartAnim(who, from[0], from[1], to[0], to[1]);
+      }
+    }
+  }
+
+  function replaySetStep(step, animate) {
+    const len = (replayData.history || []).length;
+    if (step < 0 || step > len) return;
+    replayApplyStep(step, animate);
+    replayStep = step;
+    replayDraw();
+    replayCounterCurrent.textContent = step;
+    replayCounterTotal.textContent = len;
+    replayProgress.style.width = (len ? (step / len) * 100 : 0) + '%';
+    btnReplayPrev.disabled = step === 0;
+    btnReplayNext.disabled = step === len;
+    updateReplayMovesHighlight();
+  }
+
+  function showReplayScreen(data) {
+    tgLog('[replay] showReplayScreen called, history length:',
+      data && data.history ? data.history.length : 'NO HISTORY');
+    tgLogJSON('[replay] first move:', (data.history && data.history[0]) || null);
+
+    replayData = data;
+    const p1 = data.players && data.players['1'] || {};
+    const p2 = data.players && data.players['2'] || {};
+    if (p1.photo) replayAvatarP1.innerHTML = `<img src="${p1.photo}" alt="" referrerpolicy="no-referrer">`;
+    else replayAvatarP1.textContent = (p1.name || 'И').charAt(0).toUpperCase();
+    if (p2.photo) replayAvatarP2.innerHTML = `<img src="${p2.photo}" alt="" referrerpolicy="no-referrer">`;
+    else replayAvatarP2.textContent = (p2.name || 'И').charAt(0).toUpperCase();
+    replayNameP1.textContent = p1.name || 'Игрок 1';
+    replayNameP2.textContent = p2.name || 'Игрок 2';
+
+    showScreen('replay');
+    requestAnimationFrame(() => {
+      resizeReplayCanvas();
+      buildReplayMovesList();
+      replaySetStep(0, false);
+      tgLog('[replay] ready, total moves =', (data.history || []).length);
+    });
+  }
+
+  btnReplayPrev.addEventListener('click', () => { if (replayStep > 0) replaySetStep(replayStep - 1, false); });
+  btnReplayNext.addEventListener('click', () => { if (replayStep < (replayData.history || []).length) replaySetStep(replayStep + 1, true); });
+
+  let replayTouchX = null;
+  replayCanvas.addEventListener('touchstart', (e) => { replayTouchX = e.touches[0].clientX; }, { passive: true });
+  replayCanvas.addEventListener('touchend', (e) => {
+    if (replayTouchX === null) return;
+    const dx = e.changedTouches[0].clientX - replayTouchX;
+    const len = (replayData && replayData.history || []).length;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0 && replayStep < len) replaySetStep(replayStep + 1, true);
+      if (dx > 0 && replayStep > 0) replaySetStep(replayStep - 1, false);
+    }
+    replayTouchX = null;
+  });
+
+  async function bootstrap() {
+    if (!tg || !tg.initData) {
+      showError('Откройте в Telegram', 'Эта игра работает только внутри Telegram Mini App.');
+      return;
+    }
+
+    const startParam = tg.initDataUnsafe?.start_param || '';
+    if (!startParam) {
+      showError('Нет параметра', 'Ссылка не содержит код комнаты или ID повтора.');
+      return;
+    }
+
+    loadingMsg.textContent = 'Авторизация…';
+    roomCode = startParam;
+    tgLog('[bootstrap] start_param =', startParam);
+
+    try {
+      const res = await api('/api/validate', {
+        method: 'POST',
+        body: JSON.stringify({ initData: tg.initData, room: roomCode }),
+      });
+
+      tgLog('[bootstrap] validate response mode =', res.mode);
+
+      myUser = res.user;
+
+      if (res.mode === 'replay') {
+        mode = 'replay';
+        tgLog('[bootstrap] entering replay mode');
+        showReplayScreen(res.replay);
+        return;
+      }
+
+      myPlayer = res.player;
+      if (!myPlayer) {
+        showError('Комната заполнена', 'В этой комнате уже играют двое.');
+        return;
+      }
+
+      const s = await api(`/api/state/${roomCode}`);
+      applyState(s);
+      resizeCanvas();
+
+      if (s.started) {
+        refresh();
+        showScreen('game');
+        startPolling();
+        if (s.gameOver && s.winner) {
+          lastGameOverShown = true;
+          showWinScreen(s.winner, s.replayId);
+        }
+      } else {
+        waitingCode.textContent = roomCode;
+        waitingTitle.textContent = myPlayer === 1 ? 'Ожидание соперника' : 'Ожидание';
+        waitingMsg.innerHTML = myPlayer === 1
+          ? 'Отправьте другу сообщение из бота с кнопкой.<br>Игра начнётся автоматически.'
+          : 'Ждём соперника…';
+        showScreen('waiting');
+        startPolling();
+      }
+    } catch (e) {
+      tgLog('[bootstrap] ERROR:', e.message, 'status=', e.status);
+      if (e.status === 404) showError('Не найдено', 'Комната или повтор не существует.');
+      else if (e.status === 409) showError('Комната заполнена', 'Уже играют двое.');
+      else if (e.status === 401) showError('Ошибка авторизации', 'Не удалось проверить подпись Telegram.');
+      else showError('Ошибка', e.message || 'Что-то пошло не так.');
+    }
+  }
+
+  async function leaveGame() {
+    stopPolling();
+    if (roomCode && myUser && myUser.id) {
+      try {
+        await api(`/api/leave/${roomCode}`, {
+          method: 'POST',
+          body: JSON.stringify({ user_id: myUser.id }),
+        });
+      } catch (e) {}
+    }
+    if (tg) { try { tg.close(); } catch (e) {} }
+  }
+  function leaveSilently() {
+    stopPolling();
+    if (roomCode && myUser && myUser.id) {
+      fetch(API_BASE + `/api/leave/${roomCode}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: myUser.id }),
+      }).catch(() => {});
+    }
+    if (tg) { try { tg.close(); } catch (e) {} }
+  }
+
+  function getBoardRect() { return canvas.getBoundingClientRect(); }
+  function getPointerPos(e) {
+    const isTouch = !!(e.touches && e.touches.length);
+    const touch = isTouch ? e.touches[0] : e;
+    return { x: touch.clientX, y: touch.clientY - (isTouch ? FINGER_OFFSET_Y : 0) };
+  }
+  function toCanvasXY(cx, cy) {
+    const rect = getBoardRect();
+    const sx = rect.width / (canvas.width / (window.devicePixelRatio || 1));
+    const sy = rect.height / (canvas.height / (window.devicePixelRatio || 1));
+    return { x: (cx - rect.left) / sx, y: (cy - rect.top) / sy };
+  }
+  function getWallCoordinates(clientX, clientY, orient) {
+    const p = toCanvasXY(clientX, clientY);
+    let viewC, viewR;
+    if (orient === 'h') { viewC = Math.floor((p.x - PAD) / CELL); viewR = Math.round((p.y - PAD) / CELL) - 1; }
+    else { viewC = Math.round((p.x - PAD) / CELL) - 1; viewR = Math.floor((p.y - PAD) / CELL); }
+    viewC = Math.max(0, Math.min(N - 2, viewC));
+    viewR = Math.max(0, Math.min(N - 2, viewR));
+    let r, c;
+    if (myPlayer === 1) { r = viewR; c = viewC; }
+    else { r = N - 2 - viewR; c = N - 2 - viewC; }
+    const cx = PAD + (viewC + 1) * CELL;
+    const cy = PAD + (viewR + 1) * CELL;
+    const dist = Math.hypot(p.x - cx, p.y - cy);
+    const isInsideBoard = dist < CELL * 1.5;
+    const valid = orient === 'h' ? canPlaceHClient(r, c) : canPlaceVClient(r, c);
+    return { orient, r, c, viewR, viewC, cx, cy, valid, isInsideBoard };
+  }
+  function startDrag(e, orient) {
+    if (!state || state.gameOver || sending) return;
+    if (state.current !== myPlayer) return;
+    const myLeft = myPlayer === 1 ? state.left1 : state.left2;
+    if (myLeft <= 0) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    const p = toCanvasXY(pos.x, pos.y);
+    dragState = { orient, startX: pos.x, startY: pos.y, animX: p.x, animY: p.y, targetX: p.x, targetY: p.y, preview: null, moved: false };
+    requestAnimationFrame(animDragLoop);
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+  }
+  function animDragLoop() {
+    if (!dragState) return;
+    dragState.animX = lerp(dragState.animX, dragState.targetX, LERP_FACTOR);
+    dragState.animY = lerp(dragState.animY, dragState.targetY, LERP_FACTOR);
+    if (Math.abs(dragState.animX - dragState.targetX) < 0.3) dragState.animX = dragState.targetX;
+    if (Math.abs(dragState.animY - dragState.targetY) < 0.3) dragState.animY = dragState.targetY;
+    draw();
+    requestAnimationFrame(animDragLoop);
+  }
+  function onDragMove(e) {
+    if (!dragState) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    if (Math.hypot(pos.x - dragState.startX, pos.y - dragState.startY) > 5) dragState.moved = true;
+    const p = toCanvasXY(pos.x, pos.y);
+    dragState.targetX = p.x; dragState.targetY = p.y;
+    const wallData = getWallCoordinates(pos.x, pos.y, dragState.orient);
+    if (wallData.isInsideBoard && wallData.valid) dragState.preview = wallData;
+  }
+  function onDragEnd() {
+    if (!dragState) return;
+    const ds = dragState;
+    dragState = null;
+    document.removeEventListener('touchmove', onDragMove);
+    document.removeEventListener('touchend', onDragEnd);
+    document.removeEventListener('touchcancel', onDragEnd);
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+    if (ds.preview && ds.preview.valid && ds.moved) {
+      startSendingVisual(ds.preview.orient);
+      sendMove({ type: 'wall', orient: ds.preview.orient, r: ds.preview.r, c: ds.preview.c });
+    } else draw();
+  }
+  function attachDrag(el) {
+    const orient = el.dataset.orient;
+    const handler = (e) => startDrag(e, orient);
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('mousedown', handler);
+  }
+  function startSendingVisual(orient) {
+    sending = true;
+    myPanel.classList.add('sending');
+    myDrags.querySelectorAll('.drag-item').forEach(item => { if (item.dataset.orient === orient) item.classList.add('sending'); });
+    refresh();
+  }
+  function stopSendingVisual() {
+    sending = false;
+    myPanel.classList.remove('sending');
+    myDrags.querySelectorAll('.drag-item').forEach(item => item.classList.remove('sending'));
+    refresh();
+  }
+  async function sendMove(action) {
+    if (!roomCode) { stopSendingVisual(); return; }
+    try {
+      const res = await api(`/api/move/${roomCode}`, { method: 'POST', body: JSON.stringify({ player: myPlayer, action }) });
+      const newState = { ...state, ...res };
+      applyState(newState);
+    } catch (e) {
+      try { await fetchState(); } catch (e2) {}
+    } finally {
+      stopSendingVisual();
+    }
+  }
+  function onBoardClick(e) {
+    if (!state || state.gameOver || sending) return;
+    if (state.current !== myPlayer) return;
+    if (dragState) return;
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const p = toCanvasXY(touch.clientX, touch.clientY);
+    const vcol = Math.floor((p.x - PAD) / CELL);
+    const vrow = Math.floor((p.y - PAD) / CELL);
+    if (vrow < 0 || vrow >= N || vcol < 0 || vcol >= N) return;
+    const row = fromViewR(vrow);
+    const col = fromViewC(vcol);
+    const active = myPlayer === 1 ? state.p1 : state.p2;
+    if (row === active[0] && col === active[1]) return;
+    const allowed = getAvailableMoves(myPlayer);
+    if (allowed.some(([r, c]) => r === row && c === col)) {
+      sending = true;
+      myPanel.classList.add('sending');
+      refresh();
+      sendMove({ type: 'move', r: row, c: col });
+    }
+  }
+
+  btnLeaveGame.addEventListener('click', () => {
+    showDialog({
+      title: 'Выйти из игры?',
+      text: 'Комната закроется для обоих игроков.',
+      buttons: [{ label: 'Отмена' }, { label: 'Выйти', danger: true, onClick: leaveGame }]
+    });
+  });
+
+  canvas.addEventListener('click', onBoardClick);
+  canvas.addEventListener('touchend', (e) => {
+    if (dragState) return;
+    if (e.changedTouches.length) onBoardClick({ changedTouches: [e.changedTouches[0]] });
+  });
+
+  document.querySelectorAll('.drag-item').forEach(attachDrag);
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (screens.game.classList.contains('active') && canvas.width) { resizeCanvas(); draw(); }
+      if (screens.replay.classList.contains('active') && replayCanvas.width) { resizeReplayCanvas(); replayDraw(); }
+    }, 60);
+  });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (screens.game.classList.contains('active') && canvas.width) { resizeCanvas(); draw(); }
+      if (screens.replay.classList.contains('active') && replayCanvas.width) { resizeReplayCanvas(); replayDraw(); }
+    }, 300);
+  });
+
+  buildDots(myDotsEl);
+  buildDots(enemyDotsEl);
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

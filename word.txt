@@ -1,0 +1,516 @@
+Aqua, [ˈa.kʷa], (а́ква), вода
+Aer, [ˈa.er], (а́ер), повітря
+Terra, [ˈtɛr.ra], (те́рра), земля
+Ignis, [ˈiŋ.nis], (і́ґніс), вогонь
+Caelum, [ˈkae̯.lum], (ка́елум), небо
+Sol, [sɔl], (соль), сонце
+Luna, [ˈluː.na], (лу́на), місяць
+Stella, [ˈstel.la], (сте́лла), зірка
+Mare, [ˈma.re], (ма́ре), море
+Flumen, [ˈfluː.mɛn], (флу́мен), річка
+Lacus, [ˈla.kus], (ла́кус), озеро
+Insula, [ˈin.su.la], (і́нсула), острів
+Mons, [mɔns], (монс), гора
+Vallis, [ˈwal.lis], (ва́лліс), долина
+Silva, [ˈsil.wa], (сі́льва), ліс
+Arbor, [ˈar.bɔr], (а́рбор), дерево
+Flos, [flɔs], (флос), квітка
+Herba, [ˈhɛr.ba], (ге́рба), трава
+Folium, [ˈfo.li.um], (фо́ліум), листок
+Radix, [ˈraː.diks], (ра́дікс), корінь
+Fructus, [ˈfruk.tus], (фру́ктус), плід
+Semen, [ˈse.mɛn], (се́мен), насіння
+Ramus, [ˈra.mus], (ра́мус), гілка
+Rosa, [ˈroː.sa], (ро́за), троянда
+Lilium, [ˈliː.li.um], (лі́ліум), лілія
+Viola, [ˈwi.o.la], (ві́ола), фіалка
+Hortus, [ˈhɔr.tus], (го́ртус), сад
+Campus, [ˈkam.pus], (ка́мпус), поле
+Via, [ˈwi.a], (ві́а), дорога
+Iter, [ˈi.tɛr], (і́тер), шлях, подорож
+Porta, [ˈpɔr.ta], (по́рта), ворота
+Murus, [ˈmuː.rus], (му́рус), стіна
+Turris, [ˈtur.ris], (ту́рріс), вежа
+Domus, [ˈdo.mus], (до́мус), дім
+Casa, [ˈkaː.sa], (ка́са), хатина
+Villa, [ˈwil.la], (ві́лла), маєток
+Urbs, [urps], (урбс), місто
+Oppidum, [ˈɔp.pi.dum], (о́ппідум), поселення
+Forum, [ˈfoː.rum], (фо́рум), площа
+Templum, [ˈtɛm.plum], (те́мплум), храм
+Schola, [ˈskoː.la], (ско́ла), школа
+Liber, [ˈli.bɛr], (лі́бер), книга
+Tabula, [ˈta.bu.la], (та́була), таблиця
+Stylus, [ˈsty.lus], (сті́лус), стило, ручка
+Charta, [ˈkar.ta], (ка́рта), папір
+Littera, [ˈlit.tɛ.ra], (лі́ттера), літера
+Verbum, [ˈwɛr.bum], (ве́рбум), слово
+Nomen, [ˈno.mɛn], (но́мен), ім'я
+Lingua, [ˈliŋ.ɡʷa], (лі́нґва), мова
+Vox, [wɔks], (вокс), голос
+Sonus, [ˈsoː.nus], (со́нус), звук
+Puer, [ˈpu.ɛr], (пу́ер), хлопчик
+Puella, [puˈɛl.la], (пуе́лла), дівчинка
+Vir, [wir], (вір), чоловік
+Femina, [ˈfɛ.mi.na], (фе́міна), жінка
+Homo, [ˈho.moː], (го́мо), людина
+Amicus, [aˈmiː.kus], (амі́кус), друг
+Amica, [aˈmiː.ka], (амі́ка), подруга
+Familia, [faˈmiː.li.a], (фамі́ліа), сім'я
+Mater, [ˈma.tɛr], (ма́тер), мати
+Pater, [ˈpa.tɛr], (па́тер), батько
+Frater, [ˈfra.tɛr], (фра́тер), брат
+Soror, [ˈso.rɔr], (со́рор), сестра
+Filius, [ˈfi.li.us], (фі́ліус), син
+Filia, [ˈfi.li.a], (фі́ліа), дочка
+Avus, [ˈa.wus], (а́вус), дідусь
+Avia, [ˈa.wi.a], (а́віа), бабуся
+Familia, [faˈmiː.li.a], (фамі́ліа), родина
+Caput, [ˈka.put], (ка́пут), голова
+Manus, [ˈma.nus], (ма́нус), рука
+Pes, [pɛs], (пес), нога, стопа
+Oculus, [ˈɔ.ku.lus], (о́кулус), око
+Auris, [ˈau̯.ris], (а́уріс), вухо
+Nasus, [ˈnaː.sus], (на́сус), ніс
+Os, [ɔs], (ос), рот
+Dens, [dɛns], (денс), зуб
+Cor, [kɔr], (кор), серце
+Corpus, [ˈkɔr.pus], (ко́рпус), тіло
+Sanguis, [ˈsaŋ.ɡʷis], (са́нґвіс), кров
+Vita, [ˈwi.ta], (ві́та), життя
+Mors, [mɔrs], (морс), смерть
+Somnus, [ˈsɔm.nus], (со́мнус), сон
+Cibus, [ˈki.bus], (кі́бус), їжа
+Panis, [ˈpaː.nis], (па́ніс), хліб
+Aqua, [ˈa.kʷa], (а́ква), вода
+Vinum, [ˈwiː.num], (ві́нум), вино
+Lac, [lak], (лак), молоко
+Carō, [ˈka.roː], (ка́ро), м'ясо
+Piscis, [ˈpis.kis], (пі́скіс), риба
+Malum, [ˈma.lum], (ма́лум), яблуко
+Pomum, [ˈpoː.mum], (по́мум), фрукт
+Sal, [sal], (саль), сіль
+Mel, [mɛl], (мель), мед
+Oleum, [ˈɔ.le.um], (о́леум), олія
+Culina, [kuˈliː.na], (кулі́на), кухня
+Mensa, [ˈmɛn.sa], (ме́нса), стіл
+Sella, [ˈsel.la], (се́лла), стілець
+Domina, [doˈmiː.na], (домі́на), господиня, пані
+Bonus, [ˈbo.nus], (бо́нус), добрий, хороший
+Malus, [ˈma.lus], (ма́лус), поганий
+Magnus, [ˈmaŋ.nus], (ма́ґнус), великий
+Parvus, [ˈpar.wus], (па́рвус), маленький
+Longus, [ˈlɔŋ.ɡus], (ло́нґус), довгий
+Brevis, [ˈbrɛ.wis], (бре́віс), короткий
+Latus, [ˈla.tus], (ла́тус), широкий
+Angustus, [aŋˈɡus.tus], (анґу́стус), вузький
+Altus, [ˈal.tus], (а́лтус), високий
+Humilis, [ˈhu.mi.lis], (гу́мІліс), низький, скромний
+Novus, [ˈno.wus], (но́вус), новий
+Vetus, [ˈwɛ.tus], (ве́тус), старий
+Primus, [ˈpri.mus], (прі́мус), перший
+Ultimus, [ˈul.ti.mus], (у́льтімус), останній
+Unus, [ˈuː.nus], (у́нус), один
+Duo, [ˈdu.oː], (ду́о), два
+Tres, [treːs], (трес), три
+Multus, [ˈmul.tus], (му́лтус), багато
+Paucus, [ˈpau̯.kus], (па́укус), мало
+Omnis, [ˈom.nis], (о́мніс), весь, кожен
+Totus, [ˈto.tus], (то́тус), увесь
+Solus, [ˈso.lus], (со́лус), один, самотній
+Alius, [ˈa.li.us], (а́ліус), інший
+Alter, [ˈal.tɛr], (а́льтер), другий, інший
+Ipse, [ˈip.sɛ], (і́псе), сам
+Idem, [ˈi.dɛm], (і́дем), той самий
+Certe, [ˈkɛr.tɛ], (ке́рте), точно, безумовно
+Semper, [ˈsɛm.pɛr], (се́мпер), завжди
+Numquam, [ˈnuːŋ.kʷam], (ну́нквам), ніколи
+Saepe, [ˈsae̯.pɛ], (са́епе), часто
+Raro, [ˈra.roː], (ра́ро), рідко
+Hodie, [ˈho.di.ɛ], (го́діе), сьогодні
+Cras, [kras], (крас), завтра
+Heri, [ˈhɛ.ri], (ге́рі), вчора
+Nunc, [nuŋk], (нунк), зараз
+Mox, [mɔks], (мокс), незабаром
+Statim, [ˈsta.tim], (ста́тім), негайно
+Mane, [ˈma.nɛ], (ма́не), вранці
+Vesper, [ˈwɛs.pɛr], (ве́спер), вечір
+Noctu, [ˈnok.tuː], (но́кту), вночі
+Dies, [ˈdi.ɛːs], (ді́ес), день
+Hora, [ˈho.ra], (го́ра), година
+Tempus, [ˈtɛm.pus], (те́мпус), час
+Annus, [ˈan.nus], (а́ннус), рік
+Mensis, [ˈmɛn.sis], (ме́нсіс), місяць
+Hebdomas, [hɛbˈdo.mas], (гебдо́мас), тиждень
+Ver, [wɛr], (вер), весна
+Aestas, [ˈae̯s.taːs], (а́естас), літо
+Autumnus, [au̯ˈtʊm.nus], (ау́тумнус), осінь
+Hiems, [hi.ɛms], (гі́емс), зима
+Calidus, [ˈka.li.dus], (ка́лідус), теплий, гарячий
+Frigidus, [ˈfri.ɡi.dus], (фрі́ґідус), холодний
+Novem, [ˈnɔ.wɛm], (но́вем), дев'ять
+Decem, [ˈdɛ.kɛm], (де́кем), десять
+Viginti, [wɪˈɡɪn.tiː], (віґі́нті), двадцять
+Centum, [ˈkɛn.tum], (ке́нтум), сто
+Primus, [ˈpri.mus], (прі́мус), перший
+Felix, [ˈfeː.liks], (фе́лікс), щасливий
+Tristis, [ˈtris.tis], (трі́стіс), сумний
+Laetus, [ˈlae̯.tus], (ла́етус), веселий
+Ira, [ˈiː.ra], (і́ра), гнів
+Timor, [ˈti.mor], (ті́мор), страх
+Gaudium, [ˈɡau̯.di.um], (ґа́удіум), радість
+Amor, [ˈa.mor], (а́мор), любов
+Odium, [ˈɔ.di.um], (о́діум), ненависть
+Spes, [spɛːs], (спес), надія
+Dolor, [ˈdo.lor], (до́лор), біль
+Pax, [paːks], (пакс), мир
+Bellum, [ˈbɛl.lum], (бе́ллум), війна
+Veritas, [ˈwɛ.ri.taːs], (ве́рітас), правда
+Mendacium, [mɛnˈda.ki.um], (менда́кіум), брехня
+Amicitia, [a.miˈki.ti.a], (амікі́тіа), дружба
+Familia, [faˈmiː.li.a], (фамі́ліа), сім'я
+Libertas, [liˈbɛr.taːs], (лібе́ртас), свобода
+Fortuna, [forˈtuː.na], (форту́на), доля, удача
+Fatum, [ˈfa.tum], (фа́тум), доля
+Deus, [ˈde.us], (де́ус), бог
+Dea, [ˈde.a], (де́а), богиня
+Angelus, [ˈan.ɡɛ.lus], (а́нґелус), ангел
+Rex, [reːks], (рекс), цар, король
+Regina, [rɛˈɡiː.na], (реґі́на), цариця, королева
+Princeps, [ˈprin.kɛps], (прі́нцепс), правитель, князь
+Dux, [duːks], (дукс), вождь, воєначальник
+Miles, [ˈmi.lɛs], (мі́лес), солдат
+Gladius, [ˈɡla.di.us], (ґла́діус), меч
+Scutum, [ˈskuː.tum], (ску́тум), щит
+Arcus, [ˈar.kus], (а́ркус), лук
+Sagitta, [saˈɡit.ta], (саґі́тта), стріла
+Equus, [ˈɛ.kʷus], (е́квус), кінь
+Canis, [ˈka.nis], (ка́ніс), собака
+Feles, [ˈfe.leːs], (фе́лес), кішка
+Avis, [ˈa.wis], (а́віс), птах
+Leo, [ˈlɛ.oː], (ле́о), лев
+Ursus, [ˈur.sus], (у́рсус), ведмідь
+Lupus, [ˈluː.pus], (лу́пус), вовк
+Vulpes, [ˈwul.pɛːs], (ву́льпес), лисиця
+Cervus, [ˈkɛr.wus], (ке́рвус), олень
+Mus, [muːs], (мус), миша
+Piscina, [pɪsˈkiː.na], (піскі́на), басейн
+Navis, [ˈna.wis], (на́віс), корабель
+Rota, [ˈroː.ta], (ро́та), колесо
+Currus, [ˈkur.rus], (ку́ррус), віз, колісниця
+Equitatio, [ɛ.kʷi.taːˈti.oː], (еквітаті́о), верхова їзда
+Ludus, [ˈluː.dus], (лу́дус), гра
+Donum, [ˈdo.num], (до́нум), подарунок
+Amare, [aˈmaː.re], (ама́ре), любити
+Videre, [ˈwi.deː.re], (ві́дере), бачити
+Audire, [au̯ˈdiː.re], (ауді́ре), чути
+Dicere, [ˈdiː.ke.re], (ді́кере), говорити
+Legere, [ˈle.ɡe.re], (ле́ґере), читати
+Scribere, [ˈskri.be.re], (скрі́бере), писати
+Docere, [ˈdo.ke.re], (до́кере), навчати
+Discere, [ˈdis.ke.re], (ді́скере), вчитися
+Scire, [ˈskiː.re], (скі́ре), знати
+Intellegere, [in.tɛlˈle.ɡe.re], (інтелле́ґере), розуміти
+Cogitare, [ko.ɡiˈtaː.re], (коґіта́ре), думати
+Meminisse, [mɛˈmiː.nis.sɛ], (мемі́ніссе), пам'ятати
+Oblivisci, [ɔ.bliˈwis.ki], (обліві́скі), забувати
+Quaerere, [ˈkʷae̯.re.re], (ква́ерере), шукати
+Invenire, [inˈweː.ni.re], (інве́ніре), знаходити
+Dare, [ˈdaː.re], (да́ре), давати
+Accipere, [akˈki.pe.re], (аккі́пере), отримувати
+Habere, [ˈha.be.re], (га́бере), мати
+Tenere, [ˈte.ne.re], (те́нере), тримати
+Facere, [ˈfa.ke.re], (фа́кере), робити
+Agere, [ˈa.ɡe.re], (а́ґере), діяти
+Venire, [ˈweː.ni.re], (ве́ніре), приходити
+Ire, [ˈiː.re], (і́ре), йти
+Redire, [reˈdiː.re], (реді́ре), повертатися
+Currere, [ˈkur.re.re], (ку́ррере), бігти
+Ambulare, [am.buˈlaː.re], (амбула́ре), ходити
+Stare, [ˈstaː.re], (ста́ре), стояти
+Sedēre, [seˈdeː.re], (седе́ре), сидіти
+Dormire, [dorˈmiː.re], (дорми́ре), спати
+Surgere, [ˈsur.ɡe.re], (су́рґере), вставати
+Manere, [maˈneː.re], (мане́ре), залишатися
+Vivere, [ˈwi.we.re], (ві́вере), жити
+Morī, [ˈmo.riː], (мо́рі), помирати
+Nasci, [ˈnas.ki], (на́скі), народжуватися
+Crescere, [ˈkres.ke.re], (кре́скере), рости
+Ridēre, [ˈri.deː.re], (рі́дере), сміятися
+Flere, [ˈfleː.re], (фле́ре), плакати
+Cantare, [kanˈtaː.re], (канта́ре), співати
+Saltare, [salˈtaː.re], (сальта́ре), танцювати
+Clamare, [klaˈmaː.re], (клама́ре), кричати
+Vocare, [woˈkaː.re], (вока́ре), кликати
+Respondēre, [resˈpon.deː.re], (респо́ндере), відповідати
+Interrogare, [in.te.rɔˈɡaː.re], (інтерроґа́ре), запитувати
+Petere, [ˈpe.te.re], (пе́тере), просити
+Sperare, [speˈraː.re], (спера́ре), сподіватися
+Timēre, [tiˈmeː.re], (тіме́ре), боятися
+Gaudēre, [ɡau̯ˈdeː.re], (ґауде́ре), радіти
+Dolēre, [doˈleː.re], (доле́ре), боліти
+Plorare, [ploˈraː.re], (плора́ре), плакати
+Parare, [paˈraː.re], (пара́ре), готувати
+Portare, [porˈtaː.re], (порта́ре), нести
+Ducere, [ˈduː.ke.re], (ду́кере), вести
+Mitīre, [ˈmit.te.re], (мі́ттере), посилати
+Ponere, [ˈpo.ne.re], (по́нере), класти
+Relinquere, [reˈliŋ.kʷe.re], (релíнквере), залишати
+Capere, [ˈka.pe.re], (ка́пере), брати
+Emere, [ˈe.me.re], (е́мере), купувати
+Vendere, [ˈwen.de.re], (ве́ндере), продавати
+Solvere, [ˈsɔl.we.re], (со́львере), розв'язувати, звільняти
+Claudere, [ˈklau̯.de.re], (кла́удере), закривати
+Aperire, [aˈpe.ri.re], (апе́рі́ре), відкривати
+Intrare, [inˈtraː.re], (інтра́ре), входити
+Exire, [ˈek.si.re], (е́ксіре), виходити
+Ascendere, [asˈken.de.re], (аске́ндере), підніматися
+Descendere, [deˈsken.de.re], (деске́ндере), спускатися
+Navigare, [na.wiˈɡaː.re], (навіґа́ре), плавати, подорожувати морем
+Natare, [naˈtaː.re], (ната́ре), плавати
+Volare, [woˈlaː.re], (вола́ре), літати
+Cadere, [ˈka.de.re], (ка́дере), падати
+Tollere, [ˈtɔl.le.re], (то́ллере), піднімати
+Ponere, [ˈpo.ne.re], (по́нере), ставити, класти
+Frangere, [ˈfraŋ.ɡe.re], (фра́нґере), ламати
+Tangere, [ˈtaŋ.ɡe.re], (та́нґере), торкатися
+Sentire, [ˈsɛn.ti.re], (се́нті́ре), відчувати
+Olere, [ˈɔ.leː.re], (о́лере), пахнути
+Videre, [ˈwi.deː.re], (ві́дере), бачити
+Vincere, [ˈwin.ke.re], (ві́нкере), перемагати
+Perdere, [ˈpɛr.de.re], (пе́рдере), втрачати
+Defendere, [deˈfɛn.de.re], (дефе́ндере), захищати
+Servare, [serˈwaː.re], (сервáре), зберігати
+Servire, [serˈwiː.re], (серві́ре), служити
+Parcere, [ˈpar.ke.re], (па́ркере), щадити
+Ignorare, [iɡ.noˈraː.re], (іґнора́ре), ігнорувати
+Creare, [kreˈaː.re], (креа́ре), створювати
+Mutare, [muˈtaː.re], (мута́ре), змінювати
+Movēre, [moˈweː.re], (мове́ре), рухати
+Dubitare, [du.biˈtaː.re], (дубіта́ре), сумніватися
+Credere, [ˈkre.de.re], (кре́дере), вірити
+Putare, [puˈtaː.re], (пута́ре), вважати, думати
+Scandere, [ˈskan.de.re], (ска́ндере), підійматися
+Deficere, [deˈfi.ke.re], (дефі́кере), бракувати
+Desiderare, [de.si.deˈraː.re], (десідера́ре), бажати
+Ornare, [orˈnaː.re], (орна́ре), прикрашати
+Lavare, [laˈwaː.re], (лава́ре), мити
+Coquere, [ˈkɔ.kʷe.re], (ко́квере), готувати їжу
+Bibere, [ˈbi.be.re], (бі́бере), пити
+Edere, [ˈɛ.de.re], (е́дере), їсти
+Aperire, [aˈpe.ri.re], (апері́ре), відкривати
+Clamare, [klaˈmaː.re], (клама́ре), кричати
+Tacēre, [taˈkeː.re], (таке́ре), мовчати
+Bellum, [ˈbɛl.lum], (бе́ллум), війна
+Pax, [paːks], (пакс), мир
+Gloria, [ˈɡloː.ri.a], (ґло́ріа), слава
+Victoria, [wikˈtoː.ri.a], (віктóріа), перемога
+Fortitudo, [for.tiˈtuː.doː], (фортіту́до), хоробрість
+Sapientia, [sa.piˈɛn.ti.a], (сапіє́нтіа), мудрість
+Patientia, [pa.tiˈɛn.ti.a], (паціє́нтіа), терпіння
+Iustitia, [juːsˈti.ti.a], (юсті́тіа), справедливість
+Prudentia, [pruːˈdɛn.ti.a], (пруде́нтіа), розсудливість
+Virtus, [ˈwir.tuːs], (ві́ртус), чеснота
+Verbum, [ˈwɛr.bum], (ве́рбум), слово
+Sententia, [sɛnˈtɛn.ti.a], (сенте́нтіа), думка, судження
+Historia, [hisˈtoː.ri.a], (гісто́ріа), історія
+Causa, [ˈkau̯.sa], (ка́уза), причина
+Res, [reːs], (рес), річ, справа
+Pars, [pars], (парс), частина
+Finis, [ˈfiː.nis], (фі́ніс), кінець
+Principium, [prinˈki.pi.um], (прінкі́піум), початок, принцип
+Medium, [ˈme.di.um], (ме́діум), середина, засіб
+Locus, [ˈlo.kus], (ло́кус), місце
+Latus, [ˈla.tus], (ла́тус), бік
+Ordo, [ˈor.doː], (о́рдо), порядок
+Numerus, [ˈnu.me.rus], (ну́мерус), число
+Forma, [ˈfor.ma], (фо́рма), форма
+Color, [ˈko.lor], (ко́лор), колір
+Lux, [luːks], (лукс), світло
+Tenebrae, [teˈne.brae̯], (тене́бре), темрява
+Umbra, [ˈum.bra], (у́мбра), тінь
+Imago, [iˈmaː.ɡoː], (іма́ґо), образ, зображення
+Speculum, [ˈspe.ku.lum], (спе́кулум), дзеркало
+Somnium, [ˈsom.ni.um], (со́мніум), сон, сновидіння
+Vultus, [ˈwul.tus], (ву́льтус), обличчя, вираз обличчя
+Capillus, [kaˈpil.lus], (капі́ллус), волосся
+Cutis, [ˈku.tis], (ку́тіс), шкіра
+Os, [oːs], (о́с), кістка
+Sanguis, [ˈsaŋ.ɡʷis], (са́нґвіс), кров
+Venter, [ˈwɛn.tɛr], (ве́нтер), живіт
+Collum, [ˈkol.lum], (ко́ллум), шия
+Bracchium, [ˈbrak.ki.um], (бра́ккіум), рука
+Digitus, [ˈdi.ɡi.tus], (ді́ґітус), палець
+Genu, [ˈɡɛ.nuː], (ґе́ну), коліно
+Crus, [kruːs], (крус), нога, гомілка
+Lingua, [ˈliŋ.ɡʷa], (лі́нґва), язик
+Vultus, [ˈwul.tus], (ву́льтус), обличчя
+Vestimentum, [wɛs.tiˈmɛn.tum], (вестіме́нтум), одяг
+Tunica, [ˈtuː.ni.ka], (ту́ніка), туніка
+Calceus, [kalˈke.us], (кальке́ус), взуття
+Anulus, [ˈa.nu.lus], (а́нулус), перстень
+Corona, [koˈroː.na], (коро́на), корона
+Aurum, [ˈau̯.rum], (а́урум), золото
+Argentum, [arˈɡɛn.tum], (арґе́нтум), срібло
+Ferrum, [ˈfɛr.rum], (фе́ррум), залізо
+Lapis, [ˈla.pis], (ла́піс), камінь
+Saxum, [ˈsak.sum], (са́ксум), скеля, камінь
+Pulvis, [ˈpul.wis], (пу́львіс), пил
+Arena, [aˈreː.na], (аре́на), пісок
+Caelum, [ˈkae̯.lum], (ка́елум), небо
+Nubes, [ˈnuː.bɛs], (ну́бес), хмара
+Pluvia, [ˈpluː.wi.a], (плу́віа), дощ
+Nix, [niks], (нікс), сніг
+Glacies, [ˈɡla.ki.ɛːs], (ґла́кіес), лід
+Ventus, [ˈwɛn.tus], (ве́нтус), вітер
+Tempestas, [tɛmˈpɛs.taːs], (темпе́стас), буря, негода
+Tonitrus, [ˈto.ni.trus], (то́нітрус), грім
+Fulmen, [ˈful.mɛn], (фу́льмен), блискавка
+Ros, [roːs], (рос), роса
+Flamma, [ˈflam.ma], (фла́мма), полум'я
+Fumus, [ˈfuː.mus], (фу́мус), дим
+Cinis, [ˈki.nis], (кі́ніс), попіл
+Vapor, [ˈwa.por], (ва́пор), пара
+Gutta, [ˈɡut.ta], (ґу́тта), крапля
+Unda, [ˈun.da], (у́нда), хвиля
+Ripa, [ˈri.pa], (рі́па), берег
+Litus, [ˈli.tus], (лі́тус), узбережжя
+Fontes, [ˈfon.teːs], (фо́нтес), джерела
+Fons, [foːns], (фонс), джерело
+Cavum, [ˈka.wum], (ка́вум), порожнина
+Spelunca, [speˈluŋ.ka], (спелу́нка), печера
+Desertum, [deˈser.tum], (дезе́ртум), пустеля
+Regio, [ˈreː.ɡi.oː], (ре́ґіо), область, край
+Patria, [ˈpa.tri.a], (па́тріа), батьківщина
+Civitas, [ˈki.wi.taːs], (ківі́тас), держава, громадянство
+Populus, [ˈpoː.pu.lus], (по́пулус), народ
+Gens, [ɡɛns], (ґенс), плем'я, народ
+Civis, [ˈki.wis], (кі́віс), громадянин
+Miles, [ˈmi.lɛs], (мі́лес), воїн, солдат
+Dux, [duːks], (дукс), вождь, полководець
+Rex, [reːks], (рекс), король
+Regina, [rɛˈɡiː.na], (реґі́на), королева
+Princeps, [ˈprin.kɛps], (прі́нцепс), правитель
+Legio, [ˈleː.ɡi.oː], (ле́ґіо), легіон
+Exercitus, [ɛkˈser.ki.tus], (ексéркітус), армія
+Castra, [ˈkas.tra], (ка́стра), табір
+Praemium, [ˈprae̯.mi.um], (пра́еміум), нагорода
+Poena, [ˈpoe̯.na], (по́ена), покарання
+Periculum, [pɛˈriː.ku.lum], (пері́кулум), небезпека
+Auxilium, [au̯kˈsi.li.um], (ауксі́ліум), допомога
+Consilium, [konˈsi.li.um], (консі́ліум), порада, план
+Responsum, [reˈspon.sum], (респо́нсум), відповідь
+Secretum, [seˈkreː.tum], (секре́тум), таємниця
+Nuntius, [ˈnun.ti.us], (ну́нтіус), повідомлення, посланець
+Epistula, [ɛˈpis.tu.la], (епі́стула), лист
+Copia, [ˈko.pi.a], (ко́піа), запас, достаток
+Pecunia, [peˈkuː.ni.a], (пеку́ніа), гроші
+Pretium, [ˈpre.ti.um], (пре́тіум), ціна
+Mercatus, [mɛrˈkaː.tus], (мерка́тус), ринок
+Taberna, [taˈbɛr.na], (табе́рна), крамниця, таверна
+Bonus, [ˈbɔ.nus], (бо́нус), хороший
+Malus, [ˈma.lus], (ма́лус), поганий
+Magnus, [ˈmaŋ.nus], (ма́ґнус), великий
+Parvus, [ˈpar.wus], (па́рвус), маленький
+Longus, [ˈlɔŋ.ɡus], (ло́нґус), довгий
+Brevis, [ˈbrɛ.wis], (бре́віс), короткий
+Latus, [ˈla.tus], (ла́тус), широкий
+Angustus, [anˈɡus.tus], (анґу́стус), вузький
+Altus, [ˈal.tus], (а́лтус), високий
+Humilis, [ˈhu.mi.lis], (гу́мiліс), низький
+Novus, [ˈno.wus], (но́вус), новий
+Vetus, [ˈwɛ.tus], (ве́тус), старий
+Pulcher, [ˈpul.kʰɛr], (пу́льхер), красивий
+Foedus, [ˈfoe̯.dus], (фо́едус), потворний
+Fortis, [ˈfor.tis], (фо́ртіс), сильний
+Debilis, [ˈdɛ.bi.lis], (де́біліс), слабкий
+Celer, [ˈke.lɛr], (ке́лер), швидкий
+Tardus, [ˈtar.dus], (та́рдус), повільний
+Facilis, [ˈfa.ki.lis], (фа́кіліс), легкий
+Difficilis, [difˈfi.ki.lis], (діффі́кіліс), важкий, складний
+Dulcis, [ˈdul.kis], (ду́лькіс), солодкий
+Amarus, [aˈma.rus], (ама́рус), гіркий
+Acer, [ˈa.kɛr], (а́кер), гострий
+Mollis, [ˈmol.lis], (мо́лліс), м'який
+Durus, [ˈdu.rus], (ду́рус), твердий
+Novem, [ˈnɔ.wɛm], (но́вем), дев'ять
+Decem, [ˈdɛ.kɛm], (де́кем), десять
+Centum, [ˈkɛn.tum], (ке́нтум), сто
+Mille, [ˈmil.le], (мі́лле), тисяча
+Dimidium, [diˈmi.di.um], (дімі́діум), половина
+Multum, [ˈmul.tum], (му́льтум), багато
+Paulum, [ˈpau̯.lum], (па́улум), трохи
+Satis, [ˈsa.tis], (са́тіс), достатньо
+Nihil, [ˈni.hil], (ні́гіль), ніщо
+Aliquid, [ˈa.li.kʷid], (а́ліквід), щось
+Quis, [kʷis], (квіс), хто
+Quid, [kʷid], (квід), що
+Ubi, [ˈu.bi], (у́бі), де
+Quando, [ˈkʷan.doː], (ква́ндо), коли
+Cur, [kur], (кур), чому
+Quomodo, [ˈkʷo.mo.doː], (кво́модо), як
+Hic, [hik], (гік), тут
+Illic, [ˈil.lik], (і́ллік), там
+Huc, [huk], (гук), сюди
+Illuc, [ˈil.luk], (і́ллук), туди
+Ante, [ˈan.tɛ], (а́нте), перед
+Post, [pɔst], (пост), після
+Inter, [ˈin.tɛr], (і́нтер), між
+Super, [ˈsu.pɛr], (су́пер), над
+Sub, [sup], (суб), під
+Prope, [ˈpro.pɛ], (про́пе), близько
+Contra, [ˈkon.tra], (ко́нтра), проти
+Extra, [ˈɛks.tra], (е́кстра), поза
+Intra, [ˈin.tra], (і́нтра), всередині
+Sine, [ˈsi.ne], (сі́не), без
+Cum, [kum], (кум), з, разом із
+Et, [ɛt], (ет), і
+Sed, [sɛd], (сед), але
+Aut, [au̯t], (аут), або
+Nam, [nam], (нам), бо, адже
+Si, [siː], (сі), якщо
+Quia, [ˈkʷi.a], (кві́а), тому що
+Ergo, [ˈɛr.ɡoː], (е́рґо), отже
+Tamen, [ˈta.mɛn], (та́мен), проте
+Fortasse, [forˈtas.se], (форта́ссе), можливо
+Ita, [ˈi.ta], (і́та), так
+Non, [noːn], (нон), не
+Minime, [ˈmi.ni.me], (мі́німе), зовсім ні
+Valde, [ˈwal.de], (ва́льде), дуже
+Paene, [ˈpae̯.ne], (па́ене), майже
+Sola, [ˈso.la], (со́ла), лише
+Rursus, [ˈrur.sus], (ру́рсус), знову
+Statim, [ˈsta.tim], (ста́тім), негайно
+Tandem, [ˈtan.dɛm], (та́ндем), нарешті
+Primum, [ˈpri.mum], (прі́мум), спочатку
+Deinde, [ˈde.in.de], (де́інде), потім
+Ibi, [ˈi.bi], (і́бі), там
+Hinc, [hink], (гінк), звідси
+Inde, [ˈin.de], (і́нде), звідти
+Sic, [sik], (сік), так, таким чином
+Bene, [ˈbɛ.ne], (бе́не), добре
+Male, [ˈma.le], (ма́ле), погано
+Libenter, [liˈbɛn.tɛr], (лібе́нтер), охоче
+Fortiter, [ˈfor.ti.tɛr], (фо́ртітер), хоробро
+Cito, [ˈki.toː], (кі́то), швидко
+Lente, [ˈlɛn.te], (ле́нте), повільно
+Diu, [diː.uː], (ді́у), довго
+Statim, [ˈsta.tim], (ста́тім), одразу
+Hodie, [ˈho.di.ɛ], (го́діе), сьогодні
+Cras, [kras], (крас), завтра
+Heri, [ˈhɛ.ri], (ге́рі), вчора
+Mane, [ˈma.ne], (ма́не), вранці
+Vespere, [wɛsˈpe.re], (веспе́ре), увечері
+Sine mora, [ˈsi.ne ˈmo.ra], (сі́не мо́ра), без зволікання
+Fortuna, [forˈtuː.na], (форту́на), удача, доля
+Occasio, [okˈkaː.si.oː], (окка́сіо), нагода
+Consuetudo, [kon.sweˈtuː.doː], (консвету́до), звичка
+Mos, [moːs], (мос), звичай
+Lex, [leːks], (лекс), закон
+Ius, [juːs], (юс), право
+Officium, [ofˈfi.ki.um], (оффі́кіум), обов'язок
+Munus, [ˈmuː.nus], (му́нус), обов'язок, дарунок
+Labor, [ˈla.bor], (ла́бор), праця
+Otium, [ˈoː.ti.um], (о́тіум), відпочинок, дозвілля
+Negotium, [neˈɡo.ti.um], (неґо́тіум), справа, заняття
+Consilium, [konˈsi.li.um], (консі́ліум), план, порада

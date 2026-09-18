@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Філворд — Латинська</title>
+<style>
+    :root {
+        --bg: #f4f4f4;
+        --highlight: #fce883;
+        --found: #ffeb3b;
+        --accent: #333;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background: var(--bg);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+    }
+    .container {
+        background: #fff;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,.1);
+        max-width: 950px;
+        width: 100%;
+    }
+    h1 { text-align: center; margin: 0 0 5px; font-size: 22px; }
+    .subtitle { text-align: center; color: #777; font-size: 13px; margin-bottom: 15px; }
+
+    .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 12px 18px;
+        background: #f7f7f7;
+        border-radius: 10px;
+        border-left: 5px solid var(--accent);
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .level-info { font-size: 15px; font-weight: 600; }
+    .level-info span { color: #c62828; }
+    .progress { font-size: 13px; color: #666; }
+
+    /* Мини-карта прогресса уровней */
+    .level-dots {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        border: 1px solid #ccc;
+        cursor: pointer;
+        transition: all .2s;
+    }
+    .dot.active { background: #333; border-color: #333; transform: scale(1.15); }
+    .dot.done { background: #4caf50; border-color: #4caf50; }
+    .dot:hover { transform: scale(1.2); }
+
+    .word-search-grid {
+        display: grid;
+        gap: 2px;
+        background: #ddd;
+        border: 2px solid #333;
+        padding: 2px;
+        max-width: 620px;
+        margin: 0 auto 25px;
+        user-select: none;
+        touch-action: none;
+    }
+    .cell {
+        background: #fff;
+        aspect-ratio: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #333;
+    }
+    .cell.selected { background: var(--highlight); }
+    .cell.found {
+        background: var(--found);
+        box-shadow: inset 0 0 0 2px #e6c82e;
+    }
+
+    .word-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 8px;
+    }
+    .word-item {
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #f9f9f9;
+        border-left: 4px solid #ccc;
+        font-size: 13px;
+        transition: all .3s;
+    }
+    .word-item.found {
+        background: #e8f5e9;
+        border-left-color: #4caf50;
+        opacity: .7;
+    }
+    .word-en { font-weight: bold; font-size: 14px; display: block; color: #222; }
+    .word-transcription { font-size: 11px; color: #888; font-style: italic; display: block; }
+    .word-pronunciation { font-size: 12px; color: #1976d2; display: block; margin-top: 1px; }
+    .word-ua { font-size: 13px; color: #555; display: block; margin-top: 2px; }
+
+    .actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 25px;
+        flex-wrap: wrap;
+    }
+    .btn {
+        padding: 10px 22px;
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 15px;
+        transition: background .2s;
+    }
+    .btn:hover:not(:disabled) { background: #555; }
+    .btn:disabled { background: #bbb; cursor: not-allowed; }
+    .btn.alt { background: #1976d2; }
+    .btn.alt:hover:not(:disabled) { background: #1565c0; }
+
+    .win-message {
+        text-align: center;
+        color: #4caf50;
+        font-size: 20px;
+        font-weight: bold;
+        margin-top: 20px;
+        display: none;
+    }
+    .error-box {
+        background: #ffebee; color: #c62828; padding: 15px;
+        border-radius: 8px; border-left: 5px solid #c62828;
+        font-size: 14px; line-height: 1.5;
+    }
+    .error-box code { background: #fff; padding: 2px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Філворд — Латинська мова</h1>
+    <div class="subtitle">50 рівнів · по 10 слів · випадковий вибір з 500</div>
+
+    <div id="errorBox" class="error-box" style="display:none;"></div>
+
+    <div id="gameArea" style="display:none;">
+        <div class="topbar">
+            <div class="level-info">Рівень <span id="levelNum">1</span> / 50</div>
+            <div class="progress">Знайдено: <b id="foundCount">0</b> / 10 · Всього пройдено: <b id="doneCount">0</b> / 50</div>
+        </div>
+
+        <div class="level-dots" id="levelDots"></div>
+
+        <div class="word-search-grid" id="grid"></div>
+        <div class="word-list" id="wordList"></div>
+
+        <div class="win-message" id="winMessage">🎉 Рівень пройдено!</div>
+
+        <div class="actions">
+            <button class="btn alt" id="restartLevelBtn" onclick="restartLevel()">Переграти рівень</button>
+            <button class="btn" id="nextLevelBtn" onclick="nextLevel()" disabled>Наступний рівень →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Конфіг ---
+    const GRID_SIZE = 15;
+    const WORDS_PER_LEVEL = 10;
+    const TOTAL_LEVELS = 50;
+
+    // --- Стан ---
+    let allWords = [];
+    let levelPools = [];
+    let currentLevel = 0;
+    let wordsData = [];
+    let grid = [];
+    let foundWords = new Set();
+    let completedLevels = new Set();  // индексы пройденных уровней
+    let isSelecting = false;
+    let startCell = null;
+    let currentPath = [];
+
+    // --- 1. Загрузка и подготовка уровней ---
+    async function loadWords() {
+        try {
+            const res = await fetch('word.txt');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const text = await res.text();
+            parseWords(text);
+
+            if (allWords.length < WORDS_PER_LEVEL * TOTAL_LEVELS) {
+                console.warn(`У файлі ${allWords.length} слів. Для 50 рівнів по 10 потрібно ${WORDS_PER_LEVEL * TOTAL_LEVELS}. Рівні будуть повторюватися.`);
+            }
+
+            buildLevels();
+            renderDots();
+
+            document.getElementById('gameArea').style.display = 'block';
+            startLevel(0);
+        } catch (err) {
+            const box = document.getElementById('errorBox');
+            box.style.display = 'block';
+            box.innerHTML =
+                '<b>⚠️ Не вдалося прочитати word.txt</b><br><br>' +
+                'Причина: ' + err.message + '<br><br>' +
+                'Відкрийте через <b>Live Server</b> у VS Code або запустіть <code>python -m http.server</code> у папці з файлами.';
+        }
+    }
+
+    // Формат: Слово, [транскрипція], (звучання), переклад
+    function parseWords(text) {
+        allWords = [];
+        let skipped = 0;
+
+        text.split('\n').forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length < 4) return;
+
+            const en = parts[0].toUpperCase();
+            const tr = parts[1];
+            const pr = parts[2];
+            const ua = parts.slice(3).join(', ');
+
+            // Только латинские буквы, длина не больше GRID_SIZE
+            if (!/^[A-Z]+$/.test(en)) return;
+            if (en.length > GRID_SIZE) { skipped++; return; }
+
+            allWords.push({ en, tr, pr, ua });
+        });
+
+        if (skipped > 0) {
+            console.warn(`Пропущено слов длиннее ${GRID_SIZE} букв: ${skipped}`);
+        }
+        console.log(`Завантажено слів: ${allWords.length}`);
+    }
+
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function buildLevels() {
+        levelPools = [];
+        let pool = shuffle(allWords);
+
+        for (let i = 0; i < TOTAL_LEVELS; i++) {
+            while (pool.length < WORDS_PER_LEVEL) {
+                pool = pool.concat(shuffle(allWords));
+            }
+            levelPools.push(pool.splice(0, WORDS_PER_LEVEL));
+        }
+    }
+
+    // --- 2. Мини-карта уровней ---
+    function renderDots() {
+        const container = document.getElementById('levelDots');
+        container.innerHTML = '';
+        for (let i = 0; i < TOTAL_LEVELS; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.title = 'Рівень ' + (i + 1);
+            dot.dataset.level = i;
+            dot.addEventListener('click', () => {
+                // Переход на любой уровень
+                startLevel(i);
+            });
+            container.appendChild(dot);
+        }
+        updateDots();
+    }
+
+    function updateDots() {
+        document.querySelectorAll('.dot').forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentLevel);
+            dot.classList.toggle('done', completedLevels.has(i));
+        });
+        document.getElementById('doneCount').textContent = completedLevels.size;
+    }
+
+    // --- 3. Игра уровня ---
+    function startLevel(levelIndex) {
+        currentLevel = levelIndex;
+        wordsData = levelPools[levelIndex];
+        foundWords.clear();
+
+        document.getElementById('levelNum').textContent = levelIndex + 1;
+        document.getElementById('foundCount').textContent = '0';
+        document.getElementById('winMessage').style.display = 'none';
+        document.getElementById('nextLevelBtn').disabled = true;
+        document.getElementById('nextLevelBtn').textContent =
+            levelIndex === TOTAL_LEVELS - 1 ? 'Фініш 🏁' : 'Наступний рівень →';
+
+        grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));
+        placeWords();
+        fillEmpty();
+        renderGrid();
+        renderList();
+        updateDots();
+
+        // Если уровень уже был пройден — пометить сразу
+        if (completedLevels.has(levelIndex)) {
+            document.getElementById('nextLevelBtn').disabled = false;
+        }
+    }
+
+    function restartLevel() { startLevel(currentLevel); }
+
+    function nextLevel() {
+        if (currentLevel < TOTAL_LEVELS - 1) startLevel(currentLevel + 1);
+        else alert('🎉 Ви пройшли всі 50 рівнів!');
+    }
+
+    function placeWords() {
+        const sorted = wordsData.slice().sort((a, b) => b.en.length - a.en.length);
+
+        sorted.forEach(({ en }) => {
+            let placed = false, attempts = 0;
+            while (!placed && attempts < 800) {
+                const dir = Math.random() > 0.5 ? 'h' : 'v';
+                const r = Math.floor(Math.random() * GRID_SIZE);
+                const c = Math.floor(Math.random() * GRID_SIZE);
+                if (canPlace(en, r, c, dir)) {
+                    place(en, r, c, dir);
+                    placed = true;
+                }
+                attempts++;
+            }
+            if (!placed) console.warn('Не вдалося розмістити:', en);
+        });
+    }
+
+    function canPlace(w, r, c, dir) {
+        if (dir === 'h') {
+            if (c + w.length > GRID_SIZE) return false;
+            for (let i = 0; i < w.length; i++)
+                if (grid[r][c + i] && grid[r][c + i] !== w[i]) return false;
+        } else {
+            if (r + w.length > GRID_SIZE) return false;
+            for (let i = 0; i < w.length; i++)
+                if (grid[r + i][c] && grid[r + i][c] !== w[i]) return false;
+        }
+        return true;
+    }
+
+    function place(w, r, c, dir) {
+        for (let i = 0; i < w.length; i++) {
+            if (dir === 'h') grid[r][c + i] = w[i];
+            else grid[r + i][c] = w[i];
+        }
+    }
+
+    function fillEmpty() {
+        const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        for (let r = 0; r < GRID_SIZE; r++)
+            for (let c = 0; c < GRID_SIZE; c++)
+                if (!grid[r][c]) grid[r][c] = A[Math.floor(Math.random() * 26)];
+    }
+
+    function renderGrid() {
+        const g = document.getElementById('grid');
+        g.innerHTML = '';
+        g.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+
+        for (let r = 0; r < GRID_SIZE; r++) {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.textContent = grid[r][c];
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+
+                cell.addEventListener('mousedown', e => startSel(e, r, c));
+                cell.addEventListener('mouseenter', e => moveSel(e, r, c));
+                cell.addEventListener('mouseup', endSel);
+
+                cell.addEventListener('touchstart', e => { e.preventDefault(); startSel(e, r, c); }, { passive: false });
+                cell.addEventListener('touchmove', e => {
+                    e.preventDefault();
+                    const t = e.touches[0];
+                    const el = document.elementFromPoint(t.clientX, t.clientY);
+                    if (el && el.classList.contains('cell'))
+                        moveSel(e, +el.dataset.row, +el.dataset.col);
+                }, { passive: false });
+                cell.addEventListener('touchend', endSel);
+
+                g.appendChild(cell);
+            }
+        }
+    }
+
+    function renderList() {
+        const l = document.getElementById('wordList');
+        l.innerHTML = '';
+        wordsData.forEach(({ en, tr, pr, ua }) => {
+            const d = document.createElement('div');
+            d.className = 'word-item';
+            d.id = 'w-' + en;
+            d.innerHTML = `
+                <span class="word-en">${en}</span>
+                <span class="word-transcription">${tr}</span>
+                <span class="word-pronunciation">${pr}</span>
+                <span class="word-ua">${ua}</span>
+            `;
+            l.appendChild(d);
+        });
+    }
+
+    // --- 4. Выделение ---
+    function startSel(e, r, c) {
+        isSelecting = true;
+        startCell = { r, c };
+        currentPath = [{ r, c }];
+        paint();
+    }
+
+    function moveSel(e, r, c) {
+        if (!isSelecting || !startCell) return;
+
+        const dr = r - startCell.r;
+        const dc = c - startCell.c;
+
+        if (dr !== 0 && dc !== 0 && Math.abs(dr) !== Math.abs(dc)) return;
+
+        currentPath = [];
+        const steps = Math.max(Math.abs(dr), Math.abs(dc));
+        const sr = dr === 0 ? 0 : dr / Math.abs(dr);
+        const sc = dc === 0 ? 0 : dc / Math.abs(dc);
+
+        for (let i = 0; i <= steps; i++)
+            currentPath.push({ r: startCell.r + i * sr, c: startCell.c + i * sc });
+
+        paint();
+    }
+
+    function endSel() {
+        if (!isSelecting) return;
+        isSelecting = false;
+        check();
+        setTimeout(() => document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected')), 250);
+        startCell = null;
+        currentPath = [];
+    }
+
+    function paint() {
+        document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+        currentPath.forEach(p => {
+            const el = document.querySelector(`.cell[data-row="${p.r}"][data-col="${p.c}"]`);
+            if (el) el.classList.add('selected');
+        });
+    }
+
+    function check() {
+        if (currentPath.length < 2) return;
+        let s = '';
+        currentPath.forEach(p => s += grid[p.r][p.c]);
+        const rev = s.split('').reverse().join('');
+
+        const hit = wordsData.find(w =>
+            (w.en === s || w.en === rev) && !foundWords.has(w.en)
+        );
+
+        if (hit) {
+            foundWords.add(hit.en);
+            currentPath.forEach(p => {
+                const el = document.querySelector(`.cell[data-row="${p.r}"][data-col="${p.c}"]`);
+                if (el) { el.classList.add('found'); el.classList.remove('selected'); }
+            });
+            const item = document.getElementById('w-' + hit.en);
+            if (item) item.classList.add('found');
+
+            document.getElementById('foundCount').textContent = foundWords.size;
+
+            if (foundWords.size === wordsData.length) {
+                document.getElementById('winMessage').style.display = 'block';
+                document.getElementById('nextLevelBtn').disabled = false;
+                completedLevels.add(currentLevel);
+                updateDots();
+            }
+        }
+    }
+
+    // --- 5. Старт ---
+    window.onload = loadWords;
+</script>
+
+</body>
+</html>

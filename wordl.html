@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#121213">
+<title>Wordly from Friends</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  :root {
+    --bg: #121213;
+    --panel: #1a1b1e;
+    --panel-edge: #2a2c30;
+    --text: #f5f5f5;
+    --text-dim: #7d7f85;
+    --tile-empty: #121213;
+    --tile-empty-edge: #3a3c42;
+    --tile-filled-edge: #565860;
+    --tile-active-edge: #7a7d85;
+    --correct: #538d4e;
+    --correct-glow: rgba(83, 141, 78, 0.4);
+    --present: #b59f3b;
+    --present-glow: rgba(181, 159, 59, 0.4);
+    --absent: #3a3c42;
+    --key: #818384;
+    --key-dark: #565758;
+    --key-h: 48px;
+    --accent: #c96b5c;
+  }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, "Helvetica Neue", sans-serif; color: var(--text); touch-action: manipulation; overscroll-behavior: none; }
+
+  .app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: radial-gradient(ellipse at 50% 0%, #1c1d20 0%, #121213 70%);
+  }
+
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity .3s ease; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .screen.active { opacity: 1; pointer-events: auto; }
+  .centered { align-items: center; justify-content: center; padding: 30px; text-align: center; }
+  .spinner-big { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .centered .msg { font-size: 15px; color: var(--text-dim); max-width: 320px; line-height: 1.5; }
+  .centered .title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+
+  header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--panel-edge);
+    background: var(--panel);
+  }
+  .author-block { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .author-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px;
+    color: #1e1f22;
+    background: var(--accent);
+    box-shadow: 0 0 0 2px rgba(201,107,92,0.25);
+  }
+  .author-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .author-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .author-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .author-sub { font-size: 11px; font-weight: 600; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .author-sub b { color: var(--text); }
+
+  .solved-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 12px;
+    background: #232529;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px var(--panel-edge);
+    font-variant-numeric: tabular-nums;
+  }
+  .solved-badge svg { width: 14px; height: 14px; opacity: 0.7; }
+
+  .board-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 0; }
+  .board { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .row { display: flex; gap: 6px; justify-content: center; }
+  .tile {
+    width: 58px; height: 58px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--tile-empty);
+    border: 2px solid var(--tile-empty-edge);
+    border-radius: 4px;
+    transition: transform .12s ease, border-color .2s ease, background .35s ease, color .35s ease, box-shadow .35s ease;
+    will-change: transform;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+  .tile.filled {
+    border-color: var(--tile-filled-edge);
+    animation: tileDrop .16s cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  @keyframes tileDrop {
+    0%   { transform: scale(0.85); opacity: 0.5; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .tile.typing {
+    border-color: var(--tile-active-edge);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.05);
+  }
+  .tile.ghost {
+    color: rgba(245, 245, 245, 0.22);
+    border-color: var(--tile-empty-edge);
+    background: var(--tile-empty);
+    font-weight: 800;
+  }
+  .tile.flip-in { animation: flipIn .3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+  @keyframes flipIn {
+    0%   { transform: rotateX(0deg); }
+    50%  { transform: rotateX(-90deg); }
+    100% { transform: rotateX(-90deg); }
+  }
+  .tile.flip-out { animation: flipOut .3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+  @keyframes flipOut {
+    0%   { transform: rotateX(-90deg); }
+    100% { transform: rotateX(0deg); }
+  }
+  .tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; box-shadow: 0 0 12px var(--correct-glow); }
+  .tile.present { background: var(--present); border-color: var(--present); color: #fff; box-shadow: 0 0 12px var(--present-glow); }
+  .tile.absent  { background: var(--absent); border-color: var(--absent); color: #cfd1d4; }
+
+  .row.shake { animation: rowShake .4s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes rowShake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+    40%, 60% { transform: translate3d(6px, 0, 0); }
+  }
+
+  .row.win .tile { animation: winBounce .7s ease forwards; }
+  .row.win .tile:nth-child(1) { animation-delay: 0s; }
+  .row.win .tile:nth-child(2) { animation-delay: .06s; }
+  .row.win .tile:nth-child(3) { animation-delay: .12s; }
+  .row.win .tile:nth-child(4) { animation-delay: .18s; }
+  .row.win .tile:nth-child(5) { animation-delay: .24s; }
+  .row.win .tile:nth-child(6) { animation-delay: .30s; }
+  .row.win .tile:nth-child(7) { animation-delay: .36s; }
+  .row.win .tile:nth-child(8) { animation-delay: .42s; }
+  @keyframes winBounce {
+    0%   { transform: translateY(0); }
+    30%  { transform: translateY(-18px); }
+    50%  { transform: translateY(0); }
+    70%  { transform: translateY(-6px); }
+    100% { transform: translateY(0); }
+  }
+
+  .keyboard { flex: 0 0 auto; padding: 8px 6px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .kb-row { display: flex; justify-content: center; align-items: stretch; gap: 5px; height: var(--key-h); }
+  .key {
+    flex: 1; min-width: 0; height: 100%;
+    border-radius: 6px;
+    background: var(--key);
+    color: #fff; border: none;
+    font-family: inherit; font-size: 16px; font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform .08s ease, background .2s ease, color .2s ease, box-shadow .2s ease, filter .15s ease;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -2px 0 rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.25);
+  }
+  .key:active { transform: scale(0.95); filter: brightness(0.9); }
+  .key svg { width: 22px; height: 22px; fill: currentColor; }
+
+  .key.enter-key {
+    flex: 1.7; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;
+    background: linear-gradient(180deg, #5c9a55 0%, var(--correct) 100%);
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2), 0 0 8px var(--correct-glow);
+  }
+  .key.enter-key:active { background: linear-gradient(180deg, #4a7e45 0%, #3f6f3b 100%); }
+
+  .key.back-key {
+    flex: 1.3;
+    background: linear-gradient(180deg, #626366 0%, var(--key-dark) 100%);
+  }
+  .key.back-key:active { background: linear-gradient(180deg, #565758 0%, #454648 100%); }
+
+  .key.correct { background: var(--correct); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 0 rgba(0,0,0,0.15), 0 0 10px var(--correct-glow); }
+  .key.present { background: var(--present); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 0 rgba(0,0,0,0.15), 0 0 10px var(--present-glow); }
+  .key.absent  { background: var(--absent); color: #8a8c92; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -2px 0 rgba(0,0,0,0.15); }
+
+  .toast {
+    position: fixed; left: 50%; top: 88px;
+    transform: translate(-50%, -12px);
+    background: #f5f5f5; color: #121213;
+    padding: 13px 22px; border-radius: 6px;
+    font-size: 14px; font-weight: 700;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    z-index: 50; max-width: 88vw; text-align: center;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.error { background: #d9534f; color: #fff; }
+
+  .final {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s ease;
+    z-index: 100; padding: 20px;
+  }
+  .final.show { opacity: 1; pointer-events: auto; }
+  .final-card {
+    background: var(--panel); border-radius: 16px;
+    padding: 30px 26px 22px; width: 100%; max-width: 340px;
+    text-align: center;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px var(--panel-edge);
+    transform: scale(0.92) translateY(10px);
+    transition: transform .35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .final.show .final-card { transform: scale(1) translateY(0); }
+  .final-emoji {
+    font-size: 54px; margin-bottom: 8px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+    animation: emojiPop .5s cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  @keyframes emojiPop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .final-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .final-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; }
+  .final-word-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+  .final-word {
+    font-size: 28px; font-weight: 900;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--correct);
+    margin-bottom: 24px; word-break: break-word;
+    text-shadow: 0 0 20px var(--correct-glow);
+  }
+  .final-btn {
+    width: 100%; border: none; font-family: inherit;
+    font-size: 15px; font-weight: 800;
+    padding: 15px 20px; border-radius: 8px;
+    cursor: pointer; color: #fff;
+    background: var(--correct); letter-spacing: 0.5px;
+    transition: transform .1s, background .2s, box-shadow .2s;
+    box-shadow: 0 4px 16px var(--correct-glow);
+  }
+  .final-btn:active { transform: scale(0.97); background: #4a7e45; }
+</style>
+</head>
+<body>
+
+<div class="screen centered active" id="screen-loading">
+  <div class="spinner-big"></div>
+  <div class="msg" id="loadingMsg">Подключение…</div>
+</div>
+
+<div class="screen centered" id="screen-error">
+  <div class="title" id="errorTitle">Не удалось войти</div>
+  <div class="msg" id="errorMsg">Откройте игру через ссылку из бота.</div>
+</div>
+
+<div class="screen" id="screen-game">
+  <div class="app">
+    <header>
+      <div class="author-block">
+        <div class="author-avatar" id="authorAvatar">А</div>
+        <div class="author-info">
+          <div class="author-name" id="authorName">Автор</div>
+          <div class="author-sub" id="authorSub">Загадал слово из <b>5-ти</b> букв</div>
+        </div>
+      </div>
+      <div class="solved-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span id="solvedCount">0</span>
+      </div>
+    </header>
+
+    <div class="board-area">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="final" id="final">
+  <div class="final-card">
+    <div class="final-emoji" id="finalEmoji">🎉</div>
+    <div class="final-title" id="finalTitle">Победа!</div>
+    <div class="final-sub" id="finalSub">Слово угадано</div>
+    <div class="final-word-label" id="finalWordLabel">Слово</div>
+    <div class="final-word" id="finalWord"></div>
+    <button class="final-btn" id="finalBtn">Закрыть</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const API_BASE = 'https://wffapi.vidokl.xyz';
+  const FLIP_IN = 300;
+  const FLIP_OUT = 300;
+  const STAGGER = 90;
+
+  const KB_ROW_1 = ['Й','Ц','У','К','Е','Н','Г','Ш','Щ','З','Х','Ъ'];
+  const KB_ROW_2 = ['Ф','Ы','В','А','П','Р','О','Л','Д','Ж','Э'];
+  const KB_ROW_3 = ['Я','Ч','С','М','И','Т','Ь','Б','Ю'];
+
+  let myUser = null;
+  let roomCode = null;
+  let secretLen = 0;
+  let maxAttempts = 6;
+  let current = '';
+  let attempt = 0;
+  let locked = false;
+  let gameOver = false;
+  let correctPositions = {};
+  let author = null;
+  let solvedCount = 0;
+
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#121213'); tg.setBackgroundColor('#121213'); } catch (e) {}
+  }
+
+  const screens = {
+    loading: document.getElementById('screen-loading'),
+    error:   document.getElementById('screen-error'),
+    game:    document.getElementById('screen-game'),
+  };
+  const loadingMsg = document.getElementById('loadingMsg');
+  const errorTitle = document.getElementById('errorTitle');
+  const errorMsg = document.getElementById('errorMsg');
+
+  const boardEl = document.getElementById('board');
+  const kbEl = document.getElementById('keyboard');
+  const toastEl = document.getElementById('toast');
+  const finalEl = document.getElementById('final');
+  const finalEmoji = document.getElementById('finalEmoji');
+  const finalTitle = document.getElementById('finalTitle');
+  const finalSub = document.getElementById('finalSub');
+  const finalWord = document.getElementById('finalWord');
+  const finalWordLabel = document.getElementById('finalWordLabel');
+  const finalBtn = document.getElementById('finalBtn');
+
+  const authorAvatarEl = document.getElementById('authorAvatar');
+  const authorNameEl = document.getElementById('authorName');
+  const authorSubEl = document.getElementById('authorSub');
+  const solvedCountEl = document.getElementById('solvedCount');
+
+  function pluralLetters(n) {
+    const m = { 3: '3-х', 4: '4-х', 5: '5-ти', 6: '6-ти', 7: '7-ми', 8: '8-ми' };
+    return m[n] || (n + '-и');
+  }
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+  }
+  function showError(title, msg) {
+    errorTitle.textContent = title;
+    errorMsg.textContent = msg;
+    showScreen('error');
+  }
+  function showToast(text, ms = 1600, isError = false) {
+    toastEl.textContent = text;
+    toastEl.classList.toggle('error', !!isError);
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  async function api(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+      const e = new Error((data && data.error) || ('HTTP ' + res.status));
+      e.status = res.status;
+      e.data = data;
+      e.serverError = data && data.error ? data.error : null;
+      throw e;
+    }
+    return data;
+  }
+
+  function setAvatar(el, meta) {
+    if (!el) return;
+    if (meta && meta.photo) el.innerHTML = `<img src="${meta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else el.textContent = (meta && meta.name ? meta.name : '?').charAt(0).toUpperCase();
+  }
+
+  function updateHeader() {
+    if (!author) return;
+    setAvatar(authorAvatarEl, author);
+    authorNameEl.textContent = author.name;
+    authorSubEl.innerHTML = `Загадал слово из <b>${pluralLetters(secretLen)}</b> букв`;
+    solvedCountEl.textContent = solvedCount;
+  }
+
+  function calcTileSize(len) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 6;
+    const maxW = Math.min(vw - 40, 380);
+    const maxH = vh - 380;
+    const sizeByW = Math.floor((maxW - gap * (len - 1) - 4) / len);
+    const sizeByH = Math.floor((maxH - gap * (maxAttempts - 1)) / maxAttempts);
+    return Math.max(28, Math.min(58, sizeByW, sizeByH));
+  }
+
+  function buildBoard(len) {
+    boardEl.innerHTML = '';
+    const size = calcTileSize(len);
+    for (let r = 0; r < maxAttempts; r++) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.dataset.row = r;
+      for (let c = 0; c < len; c++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        tile.dataset.row = r;
+        tile.dataset.col = c;
+        tile.style.width = size + 'px';
+        tile.style.height = size + 'px';
+        tile.style.fontSize = Math.floor(size * 0.52) + 'px';
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+  }
+
+  function makeKey(letter) {
+    const btn = document.createElement('button');
+    btn.className = 'key';
+    btn.dataset.key = letter;
+    btn.textContent = letter;
+    btn.addEventListener('click', () => onKey(letter));
+    return btn;
+  }
+
+  function buildKeyboard() {
+    kbEl.innerHTML = '';
+
+    const r1 = document.createElement('div');
+    r1.className = 'kb-row';
+    KB_ROW_1.forEach(l => r1.appendChild(makeKey(l)));
+    kbEl.appendChild(r1);
+
+    const r2 = document.createElement('div');
+    r2.className = 'kb-row';
+    KB_ROW_2.forEach(l => r2.appendChild(makeKey(l)));
+    kbEl.appendChild(r2);
+
+    const r3 = document.createElement('div');
+    r3.className = 'kb-row';
+
+    const backBtn = document.createElement('button');
+    backBtn.className = 'key back-key';
+    backBtn.dataset.key = '⌫';
+    backBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>';
+    backBtn.addEventListener('click', () => onKey('⌫'));
+    r3.appendChild(backBtn);
+
+    KB_ROW_3.forEach(l => r3.appendChild(makeKey(l)));
+
+    const enterBtn = document.createElement('button');
+    enterBtn.className = 'key enter-key';
+    enterBtn.dataset.key = 'ENTER';
+    enterBtn.textContent = 'ENTER';
+    enterBtn.addEventListener('click', () => onKey('ENTER'));
+    r3.appendChild(enterBtn);
+
+    kbEl.appendChild(r3);
+  }
+
+  function resetKeyboardColors() {
+    kbEl.querySelectorAll('.key').forEach(k => k.classList.remove('correct', 'present', 'absent'));
+  }
+
+  function getTile(r, c) {
+    return boardEl.querySelector(`.tile[data-row="${r}"][data-col="${c}"]`);
+  }
+
+  function renderTyping() {
+    for (let c = 0; c < secretLen; c++) {
+      const t = getTile(attempt, c);
+      if (!t) continue;
+      t.classList.remove('typing', 'ghost');
+
+      if (c < current.length) {
+        if (t.textContent !== current[c]) {
+          t.textContent = current[c];
+          t.classList.remove('filled');
+          void t.offsetWidth;
+          t.classList.add('filled');
+        }
+      } else if (correctPositions[c]) {
+        t.textContent = correctPositions[c];
+        t.classList.remove('filled');
+        t.classList.add('ghost');
+      } else {
+        t.textContent = '';
+        t.classList.remove('filled');
+      }
+    }
+    const last = getTile(attempt, current.length - 1);
+    if (last) last.classList.add('typing');
+  }
+
+  function onKey(k) {
+    if (gameOver || locked) return;
+    if (k === 'ENTER') return submit();
+    if (k === '⌫') return backspace();
+
+    if (current.length >= secretLen) return;
+    if (!/^[А-ЯЁA-Z]$/.test(k)) return;
+    current += k;
+    renderTyping();
+  }
+
+  function backspace() {
+    if (!current.length) return;
+    const t = getTile(attempt, current.length - 1);
+    if (t) {
+      t.textContent = '';
+      t.classList.remove('filled', 'typing', 'ghost');
+    }
+    current = current.slice(0, -1);
+
+    const restored = getTile(attempt, current.length);
+    if (restored && correctPositions[current.length]) {
+      restored.textContent = correctPositions[current.length];
+      restored.classList.add('ghost');
+    }
+    const last = getTile(attempt, current.length - 1);
+    if (last) last.classList.add('typing');
+  }
+
+  function shakeRow(row) {
+    const rowEl = boardEl.querySelector(`.row[data-row="${row}"]`);
+    if (!rowEl) return;
+    rowEl.classList.remove('shake');
+    void rowEl.offsetWidth;
+    rowEl.classList.add('shake');
+  }
+
+  function updateKeyboard(guess, result) {
+    const priority = { correct: 3, present: 2, absent: 1 };
+    const keyEls = {};
+    kbEl.querySelectorAll('.key').forEach(k => {
+      const letter = k.dataset.key;
+      if (letter && letter.length === 1) keyEls[letter] = k;
+    });
+    for (let i = 0; i < guess.length; i++) {
+      const el = keyEls[guess[i]];
+      if (!el) continue;
+      const state = result[i];
+      const cur = el.classList.contains('correct') ? 'correct'
+                : el.classList.contains('present') ? 'present'
+                : el.classList.contains('absent') ? 'absent'
+                : null;
+      if (!cur || priority[state] > priority[cur]) {
+        el.classList.remove('correct', 'present', 'absent');
+        el.classList.add(state);
+      }
+    }
+  }
+
+  // ============================================================
+  // Показ конкретных ошибок сервера
+  // ============================================================
+  function showServerError(code) {
+    switch (code) {
+      case 'not_in_dict':    showToast('Такого слова нет в словаре!', 1800, true); return true;
+      case 'wrong_length':   showToast('Неверная длина слова', 1500, true); return true;
+      case 'not_letters':    showToast('Только русские буквы', 1500, true); return true;
+      case 'already_solved': showToast('Вы уже отгадали это слово', 1800); return true;
+      case 'no_attempts':    showToast('Попытки закончились', 1800, true); return true;
+      case 'not_registered': showToast('Вы не в этой игре', 1800, true); return true;
+      case 'not_found':      showToast('Комната не найдена', 1800, true); return true;
+      default: return false;
+    }
+  }
+
+  async function submit() {
+    if (current.length !== secretLen) {
+      shakeRow(attempt);
+      showToast('Недостаточно букв', 1200, true);
+      return;
+    }
+
+    locked = true;
+    let res;
+    try {
+      res = await api(`/api/guess/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ user_id: myUser.id, guess: current }),
+      });
+    } catch (e) {
+      locked = false;
+
+      // 404 — комната недоступна
+      if (e.status === 404) {
+        shakeRow(attempt);
+        showToast('Комната не найдена', 1800, true);
+        return;
+      }
+
+      // Понятные ответы сервера
+      const code = e.serverError || (e.data && e.data.error);
+      if (showServerError(code)) {
+        shakeRow(attempt);
+        return;
+      }
+
+      // Реальный сбой — сеть, 500, таймаут
+      shakeRow(attempt);
+      showToast('Ошибка сервера', 1500, true);
+      return;
+    }
+
+    const guess = current;
+    const result = res.result;
+
+    for (let i = 0; i < secretLen; i++) {
+      const t = getTile(attempt, i);
+      t.textContent = guess[i];
+      t.classList.remove('ghost', 'filled', 'typing');
+      t.classList.add('flip-in');
+      setTimeout(() => {
+        t.classList.remove('flip-in');
+        t.classList.add(result[i], 'flip-out');
+        setTimeout(() => t.classList.remove('flip-out'), FLIP_OUT);
+      }, FLIP_IN);
+      await sleep(STAGGER);
+    }
+    await sleep(FLIP_IN + FLIP_OUT + 100);
+
+    updateKeyboard(guess, result);
+
+    for (let i = 0; i < secretLen; i++) {
+      if (result[i] === 'correct') correctPositions[i] = guess[i];
+    }
+
+    if (res.correct) {
+      gameOver = true;
+      locked = false;
+      const rowEl = boardEl.querySelector(`.row[data-row="${attempt}"]`);
+      if (rowEl) rowEl.classList.add('win');
+      solvedCount = res.solversCount;
+      updateHeader();
+      await sleep(700);
+      showFinal(true, guess, res.attemptNumber);
+      return;
+    }
+
+    attempt++;
+    current = '';
+    locked = false;
+
+    if (attempt >= maxAttempts) {
+      gameOver = true;
+      try {
+        const s = await api(`/api/surrender/${roomCode}`, {
+          method: 'POST',
+          body: JSON.stringify({ user_id: myUser.id }),
+        });
+        showFinal(false, s.secret, maxAttempts);
+      } catch (e) {
+        showFinal(false, '?', maxAttempts);
+      }
+      return;
+    }
+
+    renderTyping();
+  }
+
+  function showFinal(won, word, attempts) {
+    finalEmoji.textContent = won ? '🎉' : '💀';
+    finalTitle.textContent = won ? 'Победа!' : 'Проигрыш';
+    if (won) {
+      finalSub.textContent = `Угадано за ${attempts} ${pluralAttempts(attempts)}`;
+      finalWordLabel.textContent = 'Слово';
+      finalWord.textContent = word;
+    } else {
+      finalSub.textContent = 'Попытки закончились';
+      finalWordLabel.textContent = 'Слово было';
+      finalWord.textContent = word;
+    }
+    finalEl.classList.add('show');
+  }
+  function pluralAttempts(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return 'попытку';
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'попытки';
+    return 'попыток';
+  }
+
+  finalBtn.addEventListener('click', () => {
+    finalEl.classList.remove('show');
+    if (tg) { try { tg.close(); } catch (e) {} }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Enter') { e.preventDefault(); onKey('ENTER'); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); onKey('⌫'); return; }
+    const k = e.key.toUpperCase();
+    if (/^[А-ЯЁA-Z]$/.test(k)) { e.preventDefault(); onKey(k); }
+  });
+
+  let resizeT = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => {
+      if (!secretLen) return;
+      const size = calcTileSize(secretLen);
+      boardEl.querySelectorAll('.tile').forEach(t => {
+        t.style.width = size + 'px';
+        t.style.height = size + 'px';
+        t.style.fontSize = Math.floor(size * 0.52) + 'px';
+      });
+    }, 100);
+  });
+
+  async function bootstrap() {
+    if (!tg || !tg.initData) {
+      showError('Откройте в Telegram', 'Игра работает только внутри Telegram Mini App.');
+      return;
+    }
+
+    const startParam = tg.initDataUnsafe?.start_param || '';
+    if (!startParam) {
+      showError('Нет параметра', 'Ссылка не содержит код комнаты.');
+      return;
+    }
+
+    roomCode = startParam;
+    loadingMsg.textContent = 'Авторизация…';
+
+    try {
+      const res = await api('/api/validate', {
+        method: 'POST',
+        body: JSON.stringify({ initData: tg.initData, room: roomCode }),
+      });
+
+      myUser = res.user;
+      author = res.author;
+      secretLen = res.secretLen;
+      maxAttempts = res.maxAttempts;
+      solvedCount = res.solversCount;
+
+      buildBoard(secretLen);
+      buildKeyboard();
+      updateHeader();
+
+      if (res.myAttempts && res.myAttempts.length) {
+        for (let i = 0; i < res.myAttempts.length; i++) {
+          const a = res.myAttempts[i];
+          if (!a.guess) continue;
+          for (let c = 0; c < secretLen; c++) {
+            const t = getTile(i, c);
+            if (!t) continue;
+            t.textContent = a.guess[c];
+            t.classList.add('filled');
+            if (a.result && a.result[c]) t.classList.add(a.result[c]);
+          }
+          if (a.result) {
+            for (let c = 0; c < secretLen; c++) {
+              if (a.result[c] === 'correct') correctPositions[c] = a.guess[c];
+            }
+            updateKeyboard(a.guess, a.result);
+          }
+        }
+        attempt = res.myAttempts.length;
+        if (res.mySolved) gameOver = true;
+        else if (attempt >= maxAttempts) gameOver = true;
+
+        if (gameOver) {
+          try {
+            const s = await api(`/api/surrender/${roomCode}`, {
+              method: 'POST',
+              body: JSON.stringify({ user_id: myUser.id }),
+            });
+            showScreen('game');
+            if (res.mySolved) {
+              showFinal(true, res.myAttempts[res.myAttempts.length-1].guess, attempt);
+            } else {
+              showFinal(false, s.secret, attempt);
+            }
+            return;
+          } catch (e) {}
+        }
+      }
+
+      showScreen('game');
+      renderTyping();
+    } catch (e) {
+      if (e.status === 404) showError('Комната не найдена', 'Возможно, ссылка недействительна.');
+      else showError('Ошибка', e.message || 'Что-то пошло не так.');
+    }
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

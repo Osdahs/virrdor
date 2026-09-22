@@ -1,0 +1,4374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f22">
+<title>Virrdor</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  :root {
+    --bg: #1e1f22; --panel: #27292d; --panel-edge: #33363b;
+    --text: #dcdad6; --text-dim: #86898f;
+    --p1: #c96b5c; --p2: #6b90b8;
+    --p1-soft: #3a2b28; --p2-soft: #2a3340;
+    --gold: #e8c96a; --danger: #d9534f; --disabled: #3a3d43;
+    --boom: #f0b429;
+    --ice: #b8c5e8;
+  }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif; color: var(--text); touch-action: none; overscroll-behavior: none; }
+
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity .4s ease; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  .centered { align-items: center; justify-content: center; padding: 30px; text-align: center; }
+  .spinner-big { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--p1); border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .centered .msg { font-size: 15px; color: var(--text-dim); max-width: 300px; line-height: 1.5; }
+  .centered .title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .error-actions { margin-top: 24px; display: flex; justify-content: center; width: 100%; max-width: 320px; }
+  .error-actions .btn { min-width: 180px; }
+
+  .game { display: flex; flex-direction: column; }
+  .board-area { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; position: relative; min-height: 0; background: var(--bg); }
+  .board-wrap { position: relative; touch-action: none; }
+  canvas { display: block; border-radius: 14px; background: #2a2d32; }
+
+  .obs-badge {
+    position: absolute; top: 22px; right: 22px;
+    display: none; align-items: center; gap: 6px;
+    padding: 5px 10px 5px 8px; border-radius: 999px;
+    background: rgba(20, 21, 24, 0.82);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text); font-size: 13px; font-weight: 700;
+    z-index: 10; cursor: pointer; user-select: none;
+    font-variant-numeric: tabular-nums;
+    transition: transform .12s ease;
+  }
+  .obs-badge:active { transform: scale(0.94); }
+  .obs-badge.visible { display: inline-flex; }
+  .obs-badge .eye { width: 16px; height: 16px; opacity: 0.85; flex-shrink: 0; }
+  .obs-badge .cnt { color: var(--text); line-height: 1; padding: 0 2px; }
+  .obs-stack { display: flex; align-items: center; padding-left: 4px; }
+  .obs-stack .obs-ava { width: 20px; height: 20px; border-radius: 50%; margin-left: -7px; border: 2px solid rgba(20, 21, 24, 0.9); overflow: hidden; flex-shrink: 0; background: #3a3d43; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #1e1f22; }
+  .obs-stack .obs-ava:first-child { margin-left: 0; }
+  .obs-stack .obs-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .panel { flex: 0 0 auto; background: var(--panel); display: flex; flex-direction: column; padding: 8px 10px; gap: 8px; position: relative; z-index: 5; transition: background .3s; }
+  .enemy-panel { border-bottom: 1px solid var(--panel-edge); }
+  .my-panel { border-top: 1px solid var(--panel-edge); }
+  .enemy-panel.active-1, .my-panel.active-1 { background: #2b2927; }
+  .enemy-panel.active-2, .my-panel.active-2 { background: #262a30; }
+
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #1e1f22; transition: transform .25s; overflow: hidden; position: relative; }
+  .avatar.me-1 { background: var(--p1); }
+  .avatar.me-2 { background: var(--p2); }
+  .avatar.active { transform: scale(1.08); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .panel-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .panel-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-turn { font-size: 11px; font-weight: 600; color: var(--text-dim); opacity: 0; transition: opacity .2s; letter-spacing: 0.4px; text-transform: uppercase; }
+  .panel-turn.show { opacity: 1; }
+  .enemy-panel.active-1 .panel-turn, .my-panel.active-1 .panel-turn { color: var(--p1); }
+  .enemy-panel.active-2 .panel-turn, .my-panel.active-2 .panel-turn { color: var(--p2); }
+
+  .panel-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  .flag-btn { width: 34px; height: 34px; border-radius: 10px; background: transparent; border: none; color: var(--text-dim); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s, color .2s; flex-shrink: 0; }
+  .flag-btn:hover { background: #33363b; color: var(--danger); }
+  .flag-btn:active { transform: scale(0.94); }
+  .flag-btn svg { width: 18px; height: 18px; }
+  .flag-btn.hidden { display: none; }
+
+  .stat-row { display: flex; align-items: center; gap: 10px; }
+  .stat-group { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px 6px; }
+  .stat-group.bombs { grid-template-columns: repeat(3, 1fr); }
+  .dot { width: 11px; height: 11px; border-radius: 50%; background: #3a3d43; justify-self: center; transition: background .25s; }
+  .dot.me-1 { background: var(--p1); }
+  .dot.me-2 { background: var(--p2); }
+  .dot.bomb { background: var(--boom); }
+  .dot.bomb.empty { background: #3a3d43; }
+
+  .snow-group { display: flex; gap: 3px; align-items: center; }
+  .snow-dot {
+    width: 13px; height: 13px;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity .3s, filter .3s;
+    color: var(--ice);
+  }
+  .snow-dot svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .snow-dot.ready { filter: drop-shadow(0 0 4px rgba(184,197,232,0.75)); }
+  .snow-dot.empty { opacity: 0.25; }
+
+  .draggables { display: flex; gap: 8px; margin-top: 2px; }
+  .draggables.hidden { display: none; }
+  .drag-item { flex: 1; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; position: relative; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s; }
+  .drag-item:active { transform: scale(0.92); opacity: 0.7; }
+  .drag-item.me-1 { background: var(--p1-soft); box-shadow: inset 0 0 0 1.5px rgba(201,107,92,0.4); }
+  .drag-item.me-1 .icon { background: var(--p1); }
+  .drag-item.me-2 { background: var(--p2-soft); box-shadow: inset 0 0 0 1.5px rgba(107,144,184,0.4); }
+  .drag-item.me-2 .icon { background: var(--p2); }
+  .drag-item.disabled { opacity: 0.25; pointer-events: none; }
+  .drag-item .icon { width: 60px; height: 7px; border-radius: 4px; }
+  .drag-item.vertical .icon { width: 7px; height: 60px; }
+
+  .drag-item .sending-overlay { position: absolute; inset: 0; border-radius: 14px; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; }
+  .drag-item.sending .sending-overlay { display: flex; animation: sendingPulse 0.7s ease-in-out infinite alternate; }
+  @keyframes sendingPulse { from { background: rgba(0,0,0,0.15); } to { background: rgba(0,0,0,0.45); } }
+  .drag-item .sending-overlay .spinner { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+  .my-panel.sending { animation: panelFlash 0.6s ease-in-out infinite alternate; }
+  @keyframes panelFlash { from { background: var(--panel); } to { background: #303339; } }
+
+  .bomb-btn {
+    width: 100%; height: 54px;
+    border-radius: 14px; border: none; font-family: inherit;
+    font-size: 15px; font-weight: 700; color: #e8c96a;
+    background: rgba(240, 180, 41, 0.12);
+    box-shadow: inset 0 0 0 1.5px rgba(240, 180, 41, 0.35);
+    cursor: pointer; transition: transform .12s, background .2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .bomb-btn:active { transform: scale(0.97); }
+  .bomb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .bomb-btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .bomb-btn .cnt { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 17px; }
+  .bomb-btn.hidden { display: none; }
+
+  .portal-btn {
+    width: 100%; height: 54px;
+    margin-top: 2px;
+    border-radius: 14px; border: none; font-family: inherit;
+    font-size: 15px; font-weight: 700;
+    color: #f6ddd8;
+    background: rgba(201, 107, 92, 0.14);
+    box-shadow: inset 0 0 0 1.5px rgba(201, 107, 92, 0.4);
+    cursor: pointer; transition: transform .12s, background .2s, box-shadow .2s, color .2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: relative;
+  }
+  .portal-btn:active { transform: scale(0.97); }
+  .portal-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .portal-btn svg { width: 24px; height: 24px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .portal-btn .cnt { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 17px; }
+  .portal-btn svg { display: none; }
+  .portal-btn.mode-place .icon-place { display: block; }
+  .portal-btn.mode-teleport .icon-teleport { display: block; }
+  .portal-btn.hidden { display: none; }
+  .portal-btn.me-2 { color: #d8e4f6; background: rgba(107, 144, 184, 0.14); box-shadow: inset 0 0 0 1.5px rgba(107, 144, 184, 0.4); }
+
+  .freeze-btn {
+    width: 100%; height: 54px;
+    margin-top: 2px;
+    border-radius: 14px; border: none; font-family: inherit;
+    font-size: 15px; font-weight: 700; color: #e8c96a;
+    background: rgba(240, 180, 41, 0.12);
+    box-shadow: inset 0 0 0 1.5px rgba(240, 180, 41, 0.35);
+    cursor: pointer; transition: transform .12s, background .2s, box-shadow .2s, color .2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: relative;
+  }
+  .freeze-btn:active { transform: scale(0.97); }
+  .freeze-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .freeze-btn svg { width: 26px; height: 26px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .freeze-btn .cnt { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 17px; }
+  .freeze-btn.active {
+    color: #fff2c9;
+    background: rgba(240, 180, 41, 0.24);
+    box-shadow: inset 0 0 0 1.5px rgba(240, 180, 41, 0.75);
+  }
+  .freeze-btn.hidden { display: none; }
+
+  .freeze-moves {
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff2c9;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(240, 180, 41, 0.18);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: none;
+  }
+  .freeze-moves.show { display: inline-block; }
+
+  .win-screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 30px 24px; overflow: hidden; background: radial-gradient(ellipse at 50% 25%, rgba(232,201,106,0.10), transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(201,107,92,0.06), transparent 60%), var(--bg); opacity: 0; pointer-events: none; transition: opacity .45s ease; z-index: 50; }
+  .win-screen.show { opacity: 1; pointer-events: auto; }
+
+  .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+  .confetti i { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; opacity: 0.9; animation: fall linear infinite; }
+  .confetti i:nth-child(1) { left:  5%; background:#e8c96a; animation-duration: 4.2s; animation-delay: -0.4s; transform: rotate(20deg); }
+  .confetti i:nth-child(2) { left: 12%; background:#c96b5c; animation-duration: 5.1s; animation-delay: -1.8s; transform: rotate(80deg); }
+  .confetti i:nth-child(3) { left: 19%; background:#6b90b8; animation-duration: 3.8s; animation-delay: -0.9s; transform: rotate(140deg); }
+  .confetti i:nth-child(4) { left: 27%; background:#e8c96a; animation-duration: 5.4s; animation-delay: -2.3s; transform: rotate(60deg); }
+  .confetti i:nth-child(5) { left: 34%; background:#dcdad6; animation-duration: 4.6s; animation-delay: -1.1s; transform: rotate(30deg); }
+  .confetti i:nth-child(6) { left: 41%; background:#c96b5c; animation-duration: 5.8s; animation-delay: -3.0s; transform: rotate(120deg); }
+  .confetti i:nth-child(7) { left: 48%; background:#6b90b8; animation-duration: 4.0s; animation-delay: -0.6s; transform: rotate(75deg); }
+  .confetti i:nth-child(8) { left: 55%; background:#e8c96a; animation-duration: 5.0s; animation-delay: -2.7s; transform: rotate(200deg); }
+  .confetti i:nth-child(9) { left: 62%; background:#dcdad6; animation-duration: 4.4s; animation-delay: -1.5s; transform: rotate(45deg); }
+  .confetti i:nth-child(10){ left: 69%; background:#c96b5c; animation-duration: 5.6s; animation-delay: -0.2s; transform: rotate(170deg); }
+  .confetti i:nth-child(11){ left: 76%; background:#6b90b8; animation-duration: 4.8s; animation-delay: -2.0s; transform: rotate(90deg); }
+  .confetti i:nth-child(12){ left: 83%; background:#e8c96a; animation-duration: 5.2s; animation-delay: -3.4s; transform: rotate(230deg); }
+  .confetti i:nth-child(13){ left: 90%; background:#dcdad6; animation-duration: 4.1s; animation-delay: -1.9s; transform: rotate(110deg); }
+  .confetti i:nth-child(14){ left: 96%; background:#c96b5c; animation-duration: 5.5s; animation-delay: -2.6s; transform: rotate(55deg); }
+  .confetti i:nth-child(15){ left:  8%; background:#6b90b8; animation-duration: 6.0s; animation-delay: -4.1s; transform: rotate(15deg); }
+  .confetti i:nth-child(16){ left: 25%; background:#e8c96a; animation-duration: 6.3s; animation-delay: -3.7s; transform: rotate(160deg); }
+  .confetti i:nth-child(17){ left: 42%; background:#c96b5c; animation-duration: 5.9s; animation-delay: -4.5s; transform: rotate(95deg); }
+  .confetti i:nth-child(18){ left: 58%; background:#6b90b8; animation-duration: 6.6s; animation-delay: -3.2s; transform: rotate(210deg); }
+  .confetti i:nth-child(19){ left: 74%; background:#e8c96a; animation-duration: 6.1s; animation-delay: -4.8s; transform: rotate(40deg); }
+  .confetti i:nth-child(20){ left: 88%; background:#dcdad6; animation-duration: 6.4s; animation-delay: -3.9s; transform: rotate(130deg); }
+  @keyframes fall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 0; } 10% { opacity: 0.9; } 100% { transform: translateY(105vh) rotate(720deg); opacity: 0.85; } }
+
+  .win-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 420px; flex: 1; justify-content: center; padding: 20px 0; min-height: 0; }
+  .winner-block { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 34px; }
+  .winner-avatar-wrap { position: relative; width: 116px; height: 116px; display: flex; align-items: center; justify-content: center; }
+  .winner-avatar { width: 116px; height: 116px; border-radius: 50%; background: #2e3136; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 800; color: #1e1f22; box-shadow: 0 0 0 5px var(--p1), 0 0 0 9px rgba(232,201,106,0.35), 0 20px 44px rgba(0,0,0,0.55); position: relative; z-index: 2; }
+  .winner-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .winner-avatar.is-p2 { box-shadow: 0 0 0 5px var(--p2), 0 0 0 9px rgba(232,201,106,0.35), 0 20px 44px rgba(0,0,0,0.55); }
+  .crown { position: absolute; top: -32px; left: 50%; transform: translateX(-50%); width: 66px; height: 48px; z-index: 3; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45)); animation: crownFloat 2.8s ease-in-out infinite; }
+  @keyframes crownFloat { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
+  .winner-label { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); font-weight: 700; }
+  .winner-name { font-size: 28px; font-weight: 800; color: var(--text); text-align: center; letter-spacing: -0.3px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .loser-block { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .loser-avatar { width: 58px; height: 58px; border-radius: 50%; background: #2e3136; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #1e1f22; box-shadow: 0 0 0 3px rgba(134,137,143,0.35), 0 8px 20px rgba(0,0,0,0.4); }
+  .loser-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .loser-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+  .loser-name { font-size: 13px; color: var(--text-dim); font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .win-footer { position: relative; z-index: 2; width: 100%; max-width: 420px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .btn-close { width: 100%; border: none; font-family: inherit; font-size: 16px; font-weight: 700; padding: 16px 20px; border-radius: 14px; cursor: pointer; color: #1e1f22; background: var(--gold); transition: transform .1s, background .2s; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+  .btn-close:active { transform: scale(0.98); }
+  .btn-share { width: 100%; border: none; font-family: inherit; font-size: 15px; font-weight: 700; padding: 15px 20px; border-radius: 14px; cursor: pointer; color: var(--text); background: transparent; box-shadow: inset 0 0 0 1.5px var(--panel-edge); transition: transform .1s, background .2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-share:active { transform: scale(0.98); }
+  .btn-share svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* === REPLAY === */
+  .replay-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0; }
+  .replay-header { flex: 0 0 auto; background: var(--panel); border-bottom: 1px solid var(--panel-edge); display: flex; flex-direction: column; }
+  .players-row { display: flex; align-items: stretch; justify-content: center; gap: 10px; width: 100%; max-width: 520px; margin: 0 auto; padding: 12px 12px 10px 12px; }
+  .player-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-radius: 14px; background: #2e3136;
+    min-width: 0; flex: 1; max-width: 240px;
+    border: 2px solid transparent;
+  }
+  .player-chip.right { flex-direction: row-reverse; }
+  .player-chip .pavatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #1e1f22; overflow: hidden; }
+  .player-chip .pavatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .player-chip .pinfo { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+  .player-chip.right .pinfo { align-items: flex-end; }
+  .player-chip .pname { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+  .player-chip .pstats { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+  .player-chip.right .pstats { align-items: flex-end; }
+  .pstat-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pstat-dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+  .pstat-dots.bombs { grid-template-columns: repeat(3, 1fr); }
+  .pstat-dot { width: 7px; height: 7px; border-radius: 50%; background: #3a3d43; }
+  .pstat-dot.me-1 { background: var(--p1); }
+  .pstat-dot.me-2 { background: var(--p2); }
+  .pstat-dot.bomb { background: var(--boom); }
+  .pstat-dot.bomb.empty { background: #3a3d43; }
+  .pstat-snow { display: flex; gap: 2px; align-items: center; }
+  .pstat-snow .snow-dot { width: 9px; height: 9px; }
+  .pstat-snow .snow-dot svg { width: 9px; height: 9px; }
+  .players-vs { align-self: center; font-size: 11px; font-weight: 700; color: var(--text-dim); letter-spacing: 1px; flex-shrink: 0; }
+  .replay-mode-tag { text-align: center; font-size: 10px; font-weight: 700; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; padding-bottom: 8px; }
+
+  .replay-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 0; }
+  .replay-body .board-area { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  .replay-body canvas { border-radius: 14px; background: #2a2d32; box-shadow: 0 8px 32px rgba(0,0,0,0.35); }
+
+  .replay-footer { flex: 0 0 auto; background: var(--panel); border-top: 1px solid var(--panel-edge); display: flex; flex-direction: column; position: relative; }
+  .replay-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: transparent; }
+  .replay-progress .bar { height: 100%; background: var(--gold); transition: width .25s ease; width: 0%; }
+
+  .moves-list { display: flex; gap: 8px; padding: 12px 14px; overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; scrollbar-width: none; background: #232529; }
+  .moves-list::-webkit-scrollbar { display: none; }
+  .move-chip { flex-shrink: 0; padding: 6px 12px; border-radius: 10px; background: #2e3136; color: #b5b8bd; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: 0.2px; transition: background .2s, color .2s, transform .2s; display: inline-flex; align-items: center; }
+  .move-chip.current { background: #3d4046; color: #e6e4e0; transform: scale(1.04); }
+  .move-chip.future { color: #6f7278; }
+  .move-chip .move-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+
+  .nav-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px 12px 20px; }
+  .nav-btn { width: 56px; height: 56px; border-radius: 50%; border: none; background: #33363b; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .12s, background .2s, color .2s; flex-shrink: 0; }
+  .nav-btn:active:not(:disabled) { transform: scale(0.94); }
+  .nav-btn:disabled { background: transparent; color: var(--disabled); box-shadow: inset 0 0 0 1.5px var(--panel-edge); cursor: not-allowed; }
+  .nav-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+  .nav-counter { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; }
+  .nav-counter .current { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+  .nav-counter .current .sep { color: var(--text-dim); margin: 0 6px; font-weight: 600; }
+  .nav-counter .current .total { color: var(--text-dim); font-weight: 600; }
+  .nav-counter .label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 600; margin-top: 2px; }
+
+  .share-row { padding: 0 20px 20px 20px; }
+  .btn-share-replay {
+    width: 100%; border: none; font-family: inherit; font-size: 15px; font-weight: 700;
+    padding: 14px 20px; border-radius: 14px; cursor: pointer; color: var(--text);
+    background: transparent; box-shadow: inset 0 0 0 1.5px var(--panel-edge);
+    transition: transform .1s, background .2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn-share-replay:active { transform: scale(0.98); }
+  .btn-share-replay svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 200; padding: 20px; }
+  .dialog-backdrop.show { opacity: 1; pointer-events: auto; }
+  .dialog { background: var(--panel); border-radius: 20px; padding: 26px 24px; width: 100%; max-width: 340px; transform: scale(0.92); transition: transform .25s; box-shadow: 0 20px 60px rgba(0,0,0,0.6); text-align: center; }
+  .dialog-backdrop.show .dialog { transform: scale(1); }
+  .dialog-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .dialog-text { font-size: 14px; color: var(--text-dim); line-height: 1.45; margin-bottom: 20px; }
+  .dialog-actions { display: flex; gap: 10px; }
+  .btn { border: none; font-family: inherit; font-size: 15px; font-weight: 700; padding: 14px 18px; border-radius: 12px; cursor: pointer; letter-spacing: 0.3px; color: var(--text); flex: 1; }
+  .btn-primary { background: var(--p1); color: #1e1f22; }
+  .btn-secondary { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1.5px var(--panel-edge); }
+  .btn-danger { background: var(--danger); color: #fff; }
+
+  .obs-popup-list { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; margin-bottom: 16px; text-align: left; }
+  .obs-popup-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; background: #2e3136; }
+  .obs-popup-item .op-ava { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #3a3d43; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #1e1f22; }
+  .obs-popup-item .op-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .obs-popup-item .op-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+
+<div class="screen centered active" id="screen-loading">
+  <div class="spinner-big"></div>
+  <div class="msg" id="loadingMsg">Подключение к игре…</div>
+</div>
+
+<div class="screen centered" id="screen-waiting">
+  <div class="spinner-big"></div>
+  <div class="title" id="waitingTitle">Ожидание второго игрока</div>
+  <div class="msg" id="waitingMsg">Игра начнётся автоматически, как только кто-то присоединится.</div>
+</div>
+
+<div class="screen centered" id="screen-error">
+  <div class="title" id="errorTitle">Не удалось войти</div>
+  <div class="msg" id="errorMsg">Откройте игру через ссылку из бота.</div>
+  <div class="error-actions" id="errorActions"></div>
+</div>
+
+<div class="screen game" id="screen-game">
+  <div class="panel enemy-panel" id="enemyPanel">
+    <div class="panel-head">
+      <div class="avatar" id="enemyAvatar">2</div>
+      <div class="panel-info">
+        <div class="panel-name" id="enemyName">Ожидание…</div>
+        <div class="panel-turn" id="enemyTurn">● ходит</div>
+      </div>
+      <div class="panel-right">
+        <div class="freeze-moves" id="enemyFreezeMoves">Ходов: 2</div>
+        <div class="snow-group" id="enemySnow" style="display:none;"></div>
+        <div class="stat-row">
+          <div class="stat-group bombs" id="enemyBombs" style="display:none;"></div>
+          <div class="stat-group" id="enemyDots"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-area" id="boardArea">
+    <div class="board-wrap">
+      <canvas id="board"></canvas>
+    </div>
+
+    <div class="obs-badge" id="obsBadge">
+      <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+      <div class="obs-stack" id="obsStack"></div>
+      <div class="cnt" id="obsCount" style="display:none;">0</div>
+    </div>
+  </div>
+
+  <div class="panel my-panel" id="myPanel">
+    <div class="panel-head">
+      <div class="avatar" id="myAvatar">1</div>
+      <div class="panel-info">
+        <div class="panel-name" id="myName">Вы</div>
+        <div class="panel-turn" id="myTurn">● ходит</div>
+      </div>
+      <div class="panel-right">
+        <div class="freeze-moves" id="myFreezeMoves">Ходов: 2</div>
+        <div class="snow-group" id="mySnow" style="display:none;"></div>
+        <div class="stat-row">
+          <div class="stat-group bombs" id="myBombs" style="display:none;"></div>
+          <div class="stat-group" id="myDots"></div>
+        </div>
+        <button class="flag-btn hidden" id="btnSurrender" title="Сдаться">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 22V4"></path>
+            <path d="M4 4h12l-2 4 2 4H4"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="draggables" id="myDrags">
+      <div class="drag-item" data-orient="h"><div class="icon"></div><div class="sending-overlay"><div class="spinner"></div></div></div>
+      <div class="drag-item vertical" data-orient="v"><div class="icon"></div><div class="sending-overlay"><div class="spinner"></div></div></div>
+    </div>
+    <button class="bomb-btn hidden" id="btnBomb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="14" r="6"></circle>
+        <path d="M12 8V5"></path>
+        <path d="M12 5c1.5 0 2.5-1 2.5-2"></path>
+        <path d="M14 3l1.5-0.5"></path>
+      </svg>
+      <span class="cnt" id="bombCnt">3</span>
+    </button>
+    <button class="portal-btn hidden mode-place" id="btnPortal">
+      <svg class="icon-place" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+      </svg>
+      <svg class="icon-teleport" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/>
+        <path d="M12 16 L12 8 M9 11 L12 8 L15 11"/>
+      </svg>
+      <span class="cnt" id="portalCnt">3</span>
+    </button>
+    <button class="freeze-btn hidden" id="btnFreeze">
+      <svg viewBox="0 0 24 24">
+        <line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 2"/>
+        <line x1="4" y1="7.5" x2="20" y2="16.5" stroke-dasharray="2 2"/>
+        <line x1="4" y1="16.5" x2="20" y2="7.5" stroke-dasharray="2 2"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span class="cnt" id="freezeCnt">3</span>
+    </button>
+  </div>
+</div>
+
+<div class="win-screen" id="screen-win">
+  <div class="confetti" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i>
+  </div>
+  <div class="win-content">
+    <div class="winner-block">
+      <div class="winner-avatar-wrap">
+        <svg class="crown" viewBox="0 0 70 50" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="crownGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f4dc8c"/>
+              <stop offset="55%" stop-color="#e8c96a"/>
+              <stop offset="100%" stop-color="#b89040"/>
+            </linearGradient>
+          </defs>
+          <path d="M6 42 L6 20 L20 30 L35 8 L50 30 L64 20 L64 42 Z" fill="url(#crownGrad)" stroke="#8a6a26" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="6" cy="18" r="3" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <circle cx="35" cy="6" r="3.4" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <circle cx="64" cy="18" r="3" fill="#f7ecb8" stroke="#8a6a26" stroke-width="1"/>
+          <rect x="4" y="42" width="62" height="6" rx="2" fill="#b89040" stroke="#8a6a26" stroke-width="1"/>
+        </svg>
+        <div class="winner-avatar" id="winnerAvatar">И</div>
+      </div>
+      <div class="winner-label">Победитель</div>
+      <div class="winner-name" id="winnerName">Игрок 1</div>
+    </div>
+    <div class="loser-block">
+      <div class="loser-avatar" id="loserAvatar">П</div>
+      <div class="loser-label">Проигравший</div>
+      <div class="loser-name" id="loserName">Игрок 2</div>
+    </div>
+  </div>
+  <div class="win-footer">
+    <button class="btn-close" id="btnWinClose">Закрыть</button>
+    <button class="btn-share" id="btnWinShare">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"></path>
+        <polyline points="16 6 12 2 8 6"></polyline>
+        <line x1="12" y1="2" x2="12" y2="15"></line>
+      </svg>
+      <span>Поделиться повтором</span>
+    </button>
+  </div>
+</div>
+
+<div class="screen" id="screen-replay" style="padding:0;">
+  <div class="replay-screen">
+    <div class="replay-header">
+      <div class="moves-list" id="movesList"></div>
+      <div class="players-row">
+        <div class="player-chip" id="replayChipP1">
+          <div class="pavatar" id="replayAvatarP1">И</div>
+          <div class="pinfo">
+            <div class="pname" id="replayNameP1">Игрок 1</div>
+            <div class="pstats">
+              <div class="pstat-row">
+                <div class="pstat-dots" id="replayDotsP1"></div>
+                <div class="pstat-snow" id="replaySnowP1" style="display:none;"></div>
+                <div class="pstat-dots bombs" id="replayBombsP1" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="players-vs">VS</div>
+        <div class="player-chip right" id="replayChipP2">
+          <div class="pavatar" id="replayAvatarP2">И</div>
+          <div class="pinfo">
+            <div class="pname" id="replayNameP2">Игрок 2</div>
+            <div class="pstats">
+              <div class="pstat-row">
+                <div class="pstat-dots" id="replayDotsP2"></div>
+                <div class="pstat-snow" id="replaySnowP2" style="display:none;"></div>
+                <div class="pstat-dots bombs" id="replayBombsP2" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="replay-mode-tag" id="replayModeTag"></div>
+    </div>
+    <div class="replay-body">
+      <div class="board-area">
+        <div class="board-wrap">
+          <canvas id="replayBoard"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="replay-footer">
+      <div class="replay-progress"><div class="bar" id="replayProgress"></div></div>
+      <div class="nav-row">
+        <button class="nav-btn" id="btnReplayPrev" title="Назад">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="nav-counter">
+          <div class="current">
+            <span id="replayCounterCurrent">0</span><span class="sep">/</span><span class="total" id="replayCounterTotal">0</span>
+          </div>
+          <div class="label">Ход</div>
+        </div>
+        <button class="nav-btn" id="replayNext" title="Вперёд">
+          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+      <div class="share-row">
+        <button class="btn-share-replay" id="btnReplayShare">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"></path>
+            <polyline points="16 6 12 2 8 6"></polyline>
+            <line x1="12" y1="2" x2="12" y2="15"></line>
+          </svg>
+          <span>Поделиться повтором</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-backdrop" id="dialog">
+  <div class="dialog">
+    <div class="dialog-title" id="dialogTitle">Заголовок</div>
+    <div class="dialog-text" id="dialogText">Текст</div>
+    <div class="dialog-actions" id="dialogActions"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const API_BASE = 'https://api.vidokl.xyz';
+  const N = 9;
+  const WALLS_PER_PLAYER = 10;
+  const MAX_BOMBS = 3;
+  const MAX_FREEZE = 3;
+  const MAX_PORTALS = 3;
+  const FREEZE_EXTRA_MOVES = 2;
+  const DIRS_ORTHO = [[-1,0],[1,0],[0,-1],[0,1]];
+  const DIRS_DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+  const COLOR_P1 = '#c96b5c';
+  const COLOR_P2 = '#6b90b8';
+  const COLOR_BUSH = '#1f4a28';
+  const COLOR_BUSH_BORDER = '#2d6636';
+  const COLOR_TRAP = '#c87878';
+  const ICE_TINT_R = 80, ICE_TINT_G = 60, ICE_TINT_B = 130;
+  const ICE_TINT_MAX_A = 0.30;
+  const FINGER_OFFSET_Y = 40;
+  const LERP_FACTOR = 0.35;
+  const DRAG_MOVE_THRESHOLD = 5;
+  const POLL_INTERVAL = 700;
+  const MOVE_DURATION = 220;
+  const TELEPORT_DURATION = 380;
+  const PORTAL_ATTRACT_DURATION = 260;
+  const PORTAL_DISAPPEAR_DURATION = 420;
+  const HIT_KICK_DURATION = 260;
+  const EVENT_GAP = 40;
+  const MOVER_DURATION = 320;
+  const WIND_WAVE_DURATION = 600;
+  const WIND_PUSH_DURATION = 450;
+  const WIND_PUSH_DELAY = 200;
+  const TRAP_SPIN_DURATION = 700;
+  const WALL_HP_MAX = 3;
+  const TRAP_HP_MAX = 2;
+  const VISION_RADIUS = 1;
+  const BOMB_EXPLOSION_DURATION = 700;
+  const KEY_COLLECT_DURATION = 500;
+  const LOCK_OPEN_DURATION = 700;
+  const TRAP_GHOST_ALPHA = 0.28;
+  const TRAP_BROKEN_FADE_DURATION = 400;
+
+  const LOCK2_POS = [0, 4];
+  const LOCK1_POS = [N - 1, 4];
+
+  const MODE_NAMES = {
+    classic: 'Классическая', free: 'Свободная', plates: 'Плитки',
+    infinite_walls: 'Бесконечные стены', bombs: 'Бомба', arrows: 'Стрелки',
+    phantom: 'Фантомные стены', fragile: 'Хрупкие стены', movers: 'Двигатели',
+    traps: 'Ловушки', bushes: 'Кусты', wind: 'Ветер',
+    portals: 'Порталы', freeze: 'Заморозка', locks: 'Замки',
+  };
+
+  const FREEZE_ICON = `
+    <line x1="12" y1="3" x2="12" y2="21" stroke-dasharray="2 2"/>
+    <line x1="4" y1="7.5" x2="20" y2="16.5" stroke-dasharray="2 2"/>
+    <line x1="4" y1="16.5" x2="20" y2="7.5" stroke-dasharray="2 2"/>
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+  `;
+
+  function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
+  function easeInQuad(t) { return t * t * t; }
+  function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function lerp(a, b, f) { return a + (b - a) * f; }
+  function chess(r, c) { return String.fromCharCode(97 + c) + (N - r); }
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+  let myPlayer = null;
+  let isObserver = false;
+  let roomCode = null;
+  let mode = 'game';
+  let gameMode = 'classic';
+  let state = null;
+  let pollTimer = null;
+  let dragState = null;
+  let pieceAnim = { p1: null, p2: null };
+  let teleportAnim = null;
+  let portalAttractAnim = null;
+  let hitAnim = null;
+  let explosions = [];
+  let wallExplosions = [];
+  let portalFades = [];
+  let keyCollectFx = [];
+  let eventQueue = [];
+  let eventPlaying = false;
+  let visualP1 = [0, 0];
+  let visualP2 = [0, 0];
+  let windWave = null;
+  let windPush = null;
+  let trapSpins = new Map();
+  let lastAnimatedTurnIndex = 0;
+  let animRaf = null;
+  let sending = false;
+  let myUser = null;
+  let playersMeta = {};
+  let observersList = [];
+  let lastGameOverShown = false;
+
+  let moversAnimFrom = null;
+  let moversAnimStart = 0;
+  let moversAnimActive = false;
+
+  let iceProgress = 0;
+
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    try { tg.setHeaderColor('#1e1f22'); tg.setBackgroundColor('#1e1f22'); } catch (e) {}
+  }
+
+  function getViewAsPlayer() { if (isObserver) return 1; return myPlayer || 1; }
+  function toViewR(r) { const v = getViewAsPlayer(); return v === 1 ? r : N - 1 - r; }
+  function toViewC(c) { const v = getViewAsPlayer(); return v === 1 ? c : N - 1 - c; }
+  function fromViewR(r) { const v = getViewAsPlayer(); return v === 1 ? r : N - 1 - r; }
+  function fromViewC(c) { const v = getViewAsPlayer(); return v === 1 ? c : N - 1 - c; }
+  function toViewWallR(r) { const v = getViewAsPlayer(); return v === 1 ? r : N - 2 - r; }
+  function toViewWallC(c) { const v = getViewAsPlayer(); return v === 1 ? c : N - 2 - c; }
+  function toViewDir(dir) {
+    const v = getViewAsPlayer();
+    if (v === 1) return dir;
+    return { up: 'down', down: 'up', left: 'right', right: 'left' }[dir];
+  }
+
+  const screens = {
+    loading: document.getElementById('screen-loading'),
+    waiting: document.getElementById('screen-waiting'),
+    error:   document.getElementById('screen-error'),
+    game:    document.getElementById('screen-game'),
+    replay:  document.getElementById('screen-replay'),
+  };
+  const loadingMsg = document.getElementById('loadingMsg');
+  const errorTitle = document.getElementById('errorTitle');
+  const errorMsg = document.getElementById('errorMsg');
+  const errorActions = document.getElementById('errorActions');
+  const waitingMsg = document.getElementById('waitingMsg');
+  const waitingTitle = document.getElementById('waitingTitle');
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+
+  const myAvatar = document.getElementById('myAvatar');
+  const myPanel = document.getElementById('myPanel');
+  const myTurn = document.getElementById('myTurn');
+  const myDotsEl = document.getElementById('myDots');
+  const myBombsEl = document.getElementById('myBombs');
+  const mySnowEl = document.getElementById('mySnow');
+  const myFreezeMovesEl = document.getElementById('myFreezeMoves');
+  const myName = document.getElementById('myName');
+  const myDrags = document.getElementById('myDrags');
+
+  const enemyPanel = document.getElementById('enemyPanel');
+  const enemyAvatar = document.getElementById('enemyAvatar');
+  const enemyName = document.getElementById('enemyName');
+  const enemyTurn = document.getElementById('enemyTurn');
+  const enemyDotsEl = document.getElementById('enemyDots');
+  const enemyBombsEl = document.getElementById('enemyBombs');
+  const enemySnowEl = document.getElementById('enemySnow');
+  const enemyFreezeMovesEl = document.getElementById('enemyFreezeMoves');
+
+  const btnSurrender = document.getElementById('btnSurrender');
+  const btnBomb = document.getElementById('btnBomb');
+  const bombCnt = document.getElementById('bombCnt');
+  const btnPortal = document.getElementById('btnPortal');
+  const portalCnt = document.getElementById('portalCnt');
+  const btnFreeze = document.getElementById('btnFreeze');
+  const freezeCnt = document.getElementById('freezeCnt');
+
+  const obsBadge = document.getElementById('obsBadge');
+  const obsStack = document.getElementById('obsStack');
+  const obsCount = document.getElementById('obsCount');
+
+  const winScreen = document.getElementById('screen-win');
+  const winnerAvatarEl = document.getElementById('winnerAvatar');
+  const winnerNameEl = document.getElementById('winnerName');
+  const loserAvatarEl = document.getElementById('loserAvatar');
+  const loserNameEl = document.getElementById('loserName');
+  const btnWinClose = document.getElementById('btnWinClose');
+  const btnWinShare = document.getElementById('btnWinShare');
+
+  const dialog = document.getElementById('dialog');
+  const dialogTitle = document.getElementById('dialogTitle');
+  const dialogText = document.getElementById('dialogText');
+  const dialogActions = document.getElementById('dialogActions');
+
+  let CELL = 0, PAD = 0, WALL_THICK = 0;
+  function resizeCanvas() {
+    const area = canvas.closest('.board-area');
+    const rect = area.getBoundingClientRect();
+    const size = Math.min(rect.width - 20, rect.height - 20);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = Math.floor(size * dpr);
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    PAD = size * 0.04;
+    CELL = (size - PAD * 2) / N;
+    WALL_THICK = Math.max(4, CELL * 0.14);
+  }
+
+  async function api(path, opts = {}) {
+    const res = await fetch(API_BASE + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) {
+      const e = new Error((data && data.error) || ('HTTP ' + res.status));
+      e.status = res.status;
+      e.data = data;
+      e.replayId = data && data.replayId;
+      throw e;
+    }
+    return data;
+  }
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+  }
+  function showError(title, msg) {
+    errorTitle.textContent = title;
+    errorMsg.textContent = msg;
+    errorActions.innerHTML = '';
+    showScreen('error');
+  }
+  function showErrorWithReplay(title, msg, replayId) {
+    errorTitle.textContent = title;
+    errorMsg.textContent = msg;
+    errorActions.innerHTML = '';
+    if (replayId) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-primary';
+      btn.textContent = 'Смотреть повтор';
+      btn.addEventListener('click', () => loadReplayInline(replayId));
+      errorActions.appendChild(btn);
+    }
+    showScreen('error');
+  }
+  function showDialog(options) {
+    dialogTitle.textContent = options.title || '';
+    dialogText.textContent = options.text || '';
+    dialogActions.innerHTML = '';
+    const oldList = dialog.querySelector('.obs-popup-list');
+    if (oldList) oldList.remove();
+    const buttons = options.buttons || [{ label: 'ОК', primary: true }];
+    buttons.forEach(btnOpt => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + (btnOpt.danger ? 'btn-danger' : (btnOpt.primary ? 'btn-primary' : 'btn-secondary'));
+      b.textContent = btnOpt.label;
+      b.addEventListener('click', () => {
+        if (btnOpt.closeAfter !== false) hideDialog();
+        if (btnOpt.onClick) btnOpt.onClick();
+      });
+      dialogActions.appendChild(b);
+    });
+    dialog.classList.add('show');
+  }
+  function hideDialog() {
+    dialog.classList.remove('show');
+    const oldList = dialog.querySelector('.obs-popup-list');
+    if (oldList) oldList.remove();
+  }
+  function showObserversPopup() {
+    dialogTitle.textContent = 'Наблюдатели';
+    dialogText.textContent = '';
+    dialogActions.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'obs-popup-list';
+    if (!observersList.length) {
+      const empty = document.createElement('div');
+      empty.className = 'obs-popup-item';
+      empty.textContent = 'Пока никого';
+      list.appendChild(empty);
+    } else {
+      observersList.forEach(o => {
+        const item = document.createElement('div');
+        item.className = 'obs-popup-item';
+        const ava = document.createElement('div');
+        ava.className = 'op-ava';
+        if (o.photo) ava.innerHTML = `<img src="${o.photo}" alt="" referrerpolicy="no-referrer">`;
+        else ava.textContent = (o.name || '?').charAt(0).toUpperCase();
+        const name = document.createElement('div');
+        name.className = 'op-name';
+        name.textContent = o.name || 'Наблюдатель';
+        item.appendChild(ava);
+        item.appendChild(name);
+        list.appendChild(item);
+      });
+    }
+    dialog.querySelector('.dialog').insertBefore(list, dialogActions);
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-primary';
+    closeBtn.textContent = 'Закрыть';
+    closeBtn.addEventListener('click', hideDialog);
+    dialogActions.appendChild(closeBtn);
+    dialog.classList.add('show');
+  }
+
+  function parseWallKey(k) {
+    const parts = k.split(':');
+    return {
+      type: parts[0], r: +parts[1], c: +parts[2],
+      player: parts.length > 3 ? +parts[3] : null,
+    };
+  }
+  function findWall(t, r, c) {
+    if (!state) return null;
+    for (const k of state.walls) {
+      const w = parseWallKey(k);
+      if (w.type === t && w.r === r && w.c === c) return { key: k, ...w };
+    }
+    return null;
+  }
+  function wallExists(t, r, c) { return !!findWall(t, r, c); }
+
+  function wallBlocksFor(wk, player) {
+    if (gameMode !== 'phantom') return true;
+    const w = parseWallKey(wk);
+    return w.player !== player;
+  }
+
+  function _hEdgeBlocked(r, cL, player) {
+    for (const [t, rr, cc] of [['V', r, cL], ['V', r - 1, cL]]) {
+      const w = findWall(t, rr, cc);
+      if (w && wallBlocksFor(w.key, player)) return true;
+    }
+    return false;
+  }
+  function _vEdgeBlocked(rT, c, player) {
+    for (const [t, rr, cc] of [['H', rT, c], ['H', rT, c - 1]]) {
+      const w = findWall(t, rr, cc);
+      if (w && wallBlocksFor(w.key, player)) return true;
+    }
+    return false;
+  }
+  function isBlocked(r1, c1, r2, c2, player) {
+    const dr = r2 - r1, dc = c2 - c1;
+    if (dr === 0 && dc !== 0) return _hEdgeBlocked(r1, Math.min(c1, c2), player);
+    if (dc === 0 && dr !== 0) return _vEdgeBlocked(Math.min(r1, r2), c1, player);
+    if (dr !== 0 && dc !== 0) {
+      const mr = Math.min(r1, r2), mc = Math.min(c1, c2);
+      const path1_open = (!_hEdgeBlocked(r1, mc, player) && !_vEdgeBlocked(mr, c2, player));
+      const path2_open = (!_vEdgeBlocked(mr, c1, player) && !_hEdgeBlocked(r2, mc, player));
+      return !(path1_open || path2_open);
+    }
+    return false;
+  }
+
+  function moverExists(t, r, c) {
+    if (!state || !state.movers) return false;
+    return state.movers.some(m => m.type === t && m.r === r && m.c === c);
+  }
+  function moverOverlapsHWall(r, c) {
+    if (!state || !state.movers) return false;
+    return state.movers.some(m => m.type === 'H' && m.r === r && Math.abs(m.c - c) <= 1);
+  }
+  function moverOverlapsVWall(r, c) {
+    if (!state || !state.movers) return false;
+    return state.movers.some(m => m.type === 'H' && m.r === r && m.c === c);
+  }
+  function isPlate(r, c) {
+    if (!state || !state.plates) return false;
+    return state.plates.some(([pr, pc]) => pr === r && pc === c);
+  }
+  function isBush(r, c) {
+    if (!state || !state.bushes) return false;
+    return state.bushes.some(b => b.r === r && b.c === c);
+  }
+  function findTrap(r, c) {
+    if (!state || !state.traps) return null;
+    return state.traps.find(t => t.r === r && t.c === c) || null;
+  }
+  function cellLockedByTrap(r, c) {
+    const t = findTrap(r, c);
+    return !!(t && t.triggered && !t.broken);
+  }
+  function findPortal(owner) {
+    if (!state || !state.portals) return null;
+    return state.portals.find(p => p.owner === owner) || null;
+  }
+  function portalActive(owner) {
+    const p = findPortal(owner);
+    if (!p) return false;
+    const enemyPos = owner === 1 ? state.p2 : state.p1;
+    return !(enemyPos[0] === p.r && enemyPos[1] === p.c);
+  }
+  function portalPlayerOnIt(owner) {
+    const p = findPortal(owner);
+    if (!p) return false;
+    const myPos = owner === 1 ? state.p1 : state.p2;
+    return myPos[0] === p.r && myPos[1] === p.c;
+  }
+  function inVision(fromPos, r, c) {
+    const dr = Math.abs(fromPos[0] - r);
+    const dc = Math.abs(fromPos[1] - c);
+    return dr <= VISION_RADIUS && dc <= VISION_RADIUS;
+  }
+
+  function getMyViewPoint() {
+    if (isObserver) return null;
+    return myPlayer === 1 ? state.p1 : state.p2;
+  }
+  function getPieceAlpha(who) {
+    if (gameMode !== 'bushes') return 1;
+    if (isObserver) return 1;
+    if (who === myPlayer) return 1;
+
+    const oppPos = who === 1 ? state.p1 : state.p2;
+    const myPos = getMyViewPoint();
+    if (!myPos) return 1;
+
+    if (!isBush(oppPos[0], oppPos[1])) return 1;
+    if (inVision(myPos, oppPos[0], oppPos[1])) return 0.6;
+    return 0;
+  }
+
+  function bfsHasPath(startR, startC, targetRow, player) {
+    const visited = Array.from({ length: N }, () => new Array(N).fill(false));
+    const queue = [[startR, startC]];
+    visited[startR][startC] = true;
+    const dirs = gameMode === 'free' ? DIRS_ORTHO.concat(DIRS_DIAG) : DIRS_ORTHO;
+
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      if (r === targetRow) return true;
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        if (visited[nr][nc]) continue;
+        if (isPlate(nr, nc)) continue;
+        if (isBlocked(r, c, nr, nc, player)) continue;
+        if (gameMode === 'movers' && dc === 0 && dr !== 0) {
+          const mr = Math.min(r, nr);
+          if (moverExists('H', mr, c) || moverExists('H', mr, c - 1)) continue;
+        }
+        visited[nr][nc] = true;
+        queue.push([nr, nc]);
+      }
+    }
+    return false;
+  }
+  function bfsReachable(startR, startC, player) {
+    const visited = Array.from({ length: N }, () => new Array(N).fill(false));
+    const queue = [[startR, startC]];
+    visited[startR][startC] = true;
+    const dirs = gameMode === 'free' ? DIRS_ORTHO.concat(DIRS_DIAG) : DIRS_ORTHO;
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+        if (visited[nr][nc]) continue;
+        if (isPlate(nr, nc)) continue;
+        if (isBlocked(r, c, nr, nc, player)) continue;
+        if (gameMode === 'movers' && dc === 0 && dr !== 0) {
+          const mr = Math.min(r, nr);
+          if (moverExists('H', mr, c) || moverExists('H', mr, c - 1)) continue;
+        }
+        visited[nr][nc] = true;
+        queue.push([nr, nc]);
+      }
+    }
+    return visited;
+  }
+  function localCheckPaths() {
+    if (!state) return true;
+    if (gameMode === 'fragile') return true;
+    return (bfsHasPath(state.p1[0], state.p1[1], 0, 1) &&
+            bfsHasPath(state.p2[0], state.p2[1], N - 1, 2));
+  }
+  function localCheckKeys() {
+    if (!state) return true;
+    if (gameMode !== 'locks') return true;
+    const reach1 = bfsReachable(state.p1[0], state.p1[1], 1);
+    const reach2 = bfsReachable(state.p2[0], state.p2[1], 2);
+    for (const k of (state.keys || [])) {
+      if (k.collected) continue;
+      if (k.owner === 2 && !reach1[k.r][k.c]) return false;
+      if (k.owner === 1 && !reach2[k.r][k.c]) return false;
+    }
+    return true;
+  }
+
+  function canPlaceHClient(r, c) {
+    if (r < 0 || r > N - 2 || c < 0 || c > N - 2) return false;
+    if (wallExists('H', r, c) || wallExists('H', r, c - 1) || wallExists('H', r, c + 1)) return false;
+    if (wallExists('V', r, c)) return false;
+    if (gameMode === 'movers' && moverOverlapsHWall(r, c)) return false;
+    if (gameMode === 'bombs' || gameMode === 'fragile') return true;
+    const my = myPlayer || 1;
+    state.walls.push(`H:${r}:${c}:${my}`);
+    const ok = localCheckPaths() && localCheckKeys();
+    state.walls.pop();
+    return ok;
+  }
+  function canPlaceVClient(r, c) {
+    if (r < 0 || r > N - 2 || c < 0 || c > N - 2) return false;
+    if (wallExists('V', r, c) || wallExists('V', r - 1, c) || wallExists('V', r + 1, c)) return false;
+    if (wallExists('H', r, c)) return false;
+    if (gameMode === 'movers' && moverOverlapsVWall(r, c)) return false;
+    if (gameMode === 'bombs' || gameMode === 'fragile') return true;
+    const my = myPlayer || 1;
+    state.walls.push(`V:${r}:${c}:${my}`);
+    const ok = localCheckPaths() && localCheckKeys();
+    state.walls.pop();
+    return ok;
+  }
+
+  const ARROW_DIR_DELTA = { up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] };
+  function arrowAt(r, c) {
+    if (!state || !state.arrows) return null;
+    return state.arrows.find(a => a.r === r && a.c === c) || null;
+  }
+  function arrowBaseOk(a) {
+    const [dr, dc] = ARROW_DIR_DELTA[a.dir];
+    const tr = a.r + dr, tc = a.c + dc;
+    if (tr < 0 || tr >= N || tc < 0 || tc >= N) return false;
+    if (isBlocked(a.r, a.c, tr, tc, 0)) return false;
+    return true;
+  }
+  function arrowActiveFor(a, mover) {
+    if (!arrowBaseOk(a)) return false;
+    if (!mover) mover = state.current || 1;
+    const [dr, dc] = ARROW_DIR_DELTA[a.dir];
+    const tr = a.r + dr, tc = a.c + dc;
+    const enemy = mover === 1 ? state.p2 : state.p1;
+    if (!(enemy[0] === tr && enemy[1] === tc)) return true;
+    const tr2 = tr + dr, tc2 = tc + dc;
+    if (tr2 < 0 || tr2 >= N || tc2 < 0 || tc2 >= N) return false;
+    if (isBlocked(tr, tc, tr2, tc2, mover)) return false;
+    if (isPlate(tr2, tc2)) return false;
+    return true;
+  }
+  function arrowActive(a) {
+    if (isObserver) return arrowActiveFor(a, 1) || arrowActiveFor(a, 2);
+    return arrowActiveFor(a, myPlayer);
+  }
+
+  function drawArrowOutline(a) {
+    const x = PAD + toViewC(a.c) * CELL + CELL / 2;
+    const y = PAD + toViewR(a.r) * CELL + CELL / 2;
+    const viewDir = toViewDir(a.dir);
+    const angle = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[viewDir];
+    const active = arrowActive(a);
+    ctx.strokeStyle = active ? 'rgba(170, 175, 182, 0.9)' : 'rgba(120, 125, 132, 0.35)';
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    const size = CELL * 0.34;
+    ctx.lineWidth = Math.max(1.5, CELL * 0.05);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(size, 0);
+    ctx.lineTo(-size * 0.15, -size * 0.72);
+    ctx.lineTo(-size * 0.15, -size * 0.22);
+    ctx.lineTo(-size * 0.95, -size * 0.22);
+    ctx.lineTo(-size * 0.95, size * 0.22);
+    ctx.lineTo(-size * 0.15, size * 0.22);
+    ctx.lineTo(-size * 0.15, size * 0.72);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPlate(r, c) {
+    const x = PAD + toViewC(c) * CELL;
+    const y = PAD + toViewR(r) * CELL;
+    const inset = CELL * 0.04;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    roundRect(x + inset + 2, y + inset + 3, CELL - inset * 2, CELL - inset * 2, CELL * 0.12);
+    ctx.fill();
+    const grad = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+    grad.addColorStop(0, '#5a5e65');
+    grad.addColorStop(0.5, '#4a4d52');
+    grad.addColorStop(1, '#3d4045');
+    ctx.fillStyle = grad;
+    roundRect(x + inset, y + inset, CELL - inset * 2, CELL - inset * 2, CELL * 0.12);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(x + inset + 2, y + inset + 2, CELL - inset * 2 - 4, (CELL - inset * 2) * 0.4, CELL * 0.08);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 1;
+    roundRect(x + inset, y + inset, CELL - inset * 2, CELL - inset * 2, CELL * 0.12);
+    ctx.stroke();
+  }
+
+  function drawBush(r, c) {
+    const x = PAD + toViewC(c) * CELL;
+    const y = PAD + toViewR(r) * CELL;
+    let alpha = 1;
+    if (gameMode === 'bushes') {
+      const myPos = getMyViewPoint();
+      if (myPos && inVision(myPos, r, c)) alpha = 0.6;
+    }
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const pad = CELL * 0.04;
+    const rad = CELL * 0.22;
+    roundRect(x + pad, y + pad, CELL - pad * 2, CELL - pad * 2, rad);
+    ctx.fillStyle = COLOR_BUSH;
+    ctx.fill();
+    ctx.strokeStyle = COLOR_BUSH_BORDER;
+    ctx.lineWidth = Math.max(1, CELL * 0.03);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrapWalls(trap) {
+    const alpha = trap.hits === 0 ? 1.0 : 0.5;
+    const key = `${trap.r}:${trap.c}`;
+    let spinProgress = 1;
+    let spinAngle = 0;
+    if (trapSpins.has(key)) {
+      const t = Math.min(1, (performance.now() - trapSpins.get(key)) / TRAP_SPIN_DURATION);
+      spinProgress = easeOutCubic(t);
+      spinAngle = (1 - spinProgress) * Math.PI * 4;
+      if (t >= 1) trapSpins.delete(key);
+    }
+    const cx = PAD + toViewC(trap.c) * CELL + CELL / 2;
+    const cy = PAD + toViewR(trap.r) * CELL + CELL / 2;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx, cy);
+    ctx.rotate(spinAngle);
+    const scale = spinProgress;
+    const halfLen = CELL * 0.75 / 2;
+    const thick = WALL_THICK;
+    const drawLocal = (lx, ly, type) => {
+      ctx.save();
+      ctx.scale(scale, scale);
+      ctx.fillStyle = COLOR_TRAP;
+      if (type === 'h') {
+        const cxx = lx + CELL / 2, cyy = ly;
+        roundRect(cxx - halfLen, cyy - thick / 2, halfLen * 2, thick, thick / 2);
+        ctx.fill();
+      } else {
+        const cxx = lx, cyy = ly + CELL / 2;
+        roundRect(cxx - thick / 2, cyy - halfLen, thick, halfLen * 2, thick / 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+    if (trap.r > 0) drawLocal(-CELL / 2, -CELL / 2, 'h');
+    if (trap.r < N - 1) drawLocal(-CELL / 2, CELL / 2, 'h');
+    if (trap.c > 0) drawLocal(-CELL / 2, -CELL / 2, 'v');
+    if (trap.c < N - 1) drawLocal(CELL / 2, -CELL / 2, 'v');
+    ctx.restore();
+  }
+
+  function drawBubble(b) {
+    const cx = PAD + toViewC(b.c) * CELL + CELL / 2;
+    const cy = PAD + toViewR(b.r) * CELL + CELL / 2;
+    const rad = CELL * 0.34;
+    ctx.beginPath(); ctx.arc(cx, cy + 2, rad * 0.95, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(180, 200, 215, 0.35)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(220, 235, 245, 0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    const grad = ctx.createRadialGradient(cx - rad * 0.35, cy - rad * 0.35, rad * 0.05, cx, cy, rad);
+    grad.addColorStop(0, 'rgba(255,255,255,0.35)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.02)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx - rad * 0.4, cy - rad * 0.42, rad * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+  }
+
+  function drawPortal(pr, pc, owner, alphaMul, scale) {
+    const x = PAD + toViewC(pc) * CELL + CELL / 2;
+    const y = PAD + toViewR(pr) * CELL + CELL / 2;
+    const rad = CELL * 0.36 * (scale || 1);
+    const color = owner === 1 ? COLOR_P1 : COLOR_P2;
+    const isActive = portalActive(owner);
+    const baseAlpha = isActive ? 1 : 0.35;
+    const alpha = baseAlpha * (alphaMul === undefined ? 1 : alphaMul);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 1.15, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(x, y, rad * 0.4, x, y, rad * 1.15);
+    grad.addColorStop(0, hexToRgba(color, 0.55));
+    grad.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.strokeStyle = hexToRgba(color, 0.9);
+    ctx.lineWidth = Math.max(2, CELL * 0.055);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.setLineDash([CELL * 0.10, CELL * 0.08]);
+    ctx.arc(x, y, rad * 0.72, 0, Math.PI * 2);
+    ctx.strokeStyle = hexToRgba(color, 0.7);
+    ctx.lineWidth = Math.max(1.5, CELL * 0.035);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(color, 0.95);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawLockZone(row, color, isOpen) {
+    const x0 = PAD;
+    const viewRow = toViewR(row);
+    const yy = PAD + viewRow * CELL;
+    const w = N * CELL;
+    const h = CELL;
+    const alpha = isOpen ? 0.10 : 0.30;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0, yy, w, h);
+    ctx.clip();
+
+    ctx.fillStyle = hexToRgba(color, alpha * 0.12);
+    ctx.fillRect(x0, yy, w, h);
+
+    const pulse = 0.9 + Math.sin(performance.now() / 600) * 0.1;
+    ctx.strokeStyle = hexToRgba(color, alpha * 0.75 * pulse);
+    ctx.lineWidth = Math.max(1.5, CELL * 0.04);
+    const step = CELL * 0.32;
+    for (let dx = -h; dx < w + h; dx += step) {
+      ctx.beginPath();
+      ctx.moveTo(x0 + dx, yy + h);
+      ctx.lineTo(x0 + dx + h, yy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawLockIcon(row, color) {
+    const cx = PAD + 4 * CELL + CELL / 2;
+    const cy = PAD + toViewR(row) * CELL + CELL / 2;
+    const size = CELL * 0.55;
+    const arcW = size * 0.55;
+    ctx.beginPath();
+    ctx.arc(cx, cy - size * 0.1, arcW * 0.5, Math.PI, 0, false);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, size * 0.16);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    const bodyW = size * 0.9;
+    const bodyH = size * 0.7;
+    const bodyX = cx - bodyW / 2;
+    const bodyY = cy - size * 0.1;
+    ctx.fillStyle = color;
+    roundRect(bodyX, bodyY, bodyW, bodyH, size * 0.12);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, bodyY + bodyH * 0.35, size * 0.10, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e1f22';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx - size * 0.05, bodyY + bodyH * 0.35);
+    ctx.lineTo(cx + size * 0.05, bodyY + bodyH * 0.35);
+    ctx.lineTo(cx + size * 0.03, bodyY + bodyH * 0.75);
+    ctx.lineTo(cx - size * 0.03, bodyY + bodyH * 0.75);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawKey(k) {
+    const x = PAD + toViewC(k.c) * CELL + CELL / 2;
+    const y = PAD + toViewR(k.r) * CELL + CELL / 2;
+    const color = k.owner === 1 ? COLOR_P1 : COLOR_P2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, CELL * 0.42, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(x, y, CELL * 0.05, x, y, CELL * 0.42);
+    grad.addColorStop(0, hexToRgba(color, 0.30));
+    grad.addColorStop(1, hexToRgba(color, 0));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x, y);
+    const rad = CELL * 0.18;
+    ctx.beginPath();
+    ctx.arc(0, -rad * 0.7, rad * 0.7, 0, Math.PI * 2);
+    ctx.strokeStyle = color; ctx.lineWidth = CELL * 0.09; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, -rad * 0.7, rad * 0.32, 0, Math.PI * 2);
+    ctx.fillStyle = '#1e1f22'; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -rad * 0.05); ctx.lineTo(0, rad * 1.4);
+    ctx.strokeStyle = color; ctx.lineWidth = CELL * 0.09;
+    ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, rad * 0.7); ctx.lineTo(rad * 0.5, rad * 0.7);
+    ctx.moveTo(0, rad * 1.05); ctx.lineTo(rad * 0.5, rad * 1.05);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawKeyCollectFx(fx, t) {
+    const x = PAD + toViewC(fx.c) * CELL + CELL / 2;
+    const y = PAD + toViewR(fx.r) * CELL + CELL / 2;
+    const color = fx.owner === 1 ? COLOR_P1 : COLOR_P2;
+    const e = easeOutCubic(t);
+    ctx.beginPath();
+    ctx.arc(x, y, CELL * 0.2 + e * CELL * 0.5, 0, Math.PI * 2);
+    ctx.strokeStyle = hexToRgba(color, 1 - t);
+    ctx.lineWidth = Math.max(2, CELL * 0.08 * (1 - t));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, CELL * 0.25 * (1 - t), 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(color, (1 - t) * 0.5);
+    ctx.fill();
+  }
+
+  function drawExplosion(ex) {
+    const now = performance.now();
+    const t = (now - ex.start) / ex.duration;
+    if (t >= 1) return false;
+    const cx = ex.cx, cy = ex.cy;
+    const ease = 1 - Math.pow(1 - t, 5);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    if (t < 0.35) {
+      const coreT = t / 0.35;
+      const coreRad = ex.maxRadius * 0.35 * (1 - coreT);
+      if (coreRad > 0.5) {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRad);
+        g.addColorStop(0, `rgba(255, 255, 255, ${0.95 * (1 - coreT)})`);
+        g.addColorStop(1, `rgba(200, 220, 255, 0)`);
+        ctx.beginPath(); ctx.arc(cx, cy, coreRad, 0, Math.PI * 2);
+        ctx.fillStyle = g; ctx.fill();
+      }
+    }
+    const rad = ease * ex.maxRadius;
+    const alpha = Math.pow(1 - t, 1.8);
+    ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.strokeStyle = ex.color ? ex.color(alpha) : `rgba(220, 240, 255, ${alpha})`;
+    ctx.lineWidth = 1.5 + 3 * Math.max(0, 1 - t * 3);
+    ctx.stroke();
+    const rad2 = ease * ex.maxRadius * 0.72;
+    if (rad2 > 0.5) {
+      ctx.beginPath(); ctx.arc(cx, cy, rad2, 0, Math.PI * 2);
+      ctx.strokeStyle = ex.color2 ? ex.color2(alpha) : `rgba(160, 200, 255, ${alpha * 0.45})`;
+      ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.restore();
+    return true;
+  }
+
+  function drawWallExplosion(we) {
+    const now = performance.now();
+    const t = (now - we.start) / we.duration;
+    if (t >= 1) return false;
+    const scale = 1 + t * 0.6;
+    const alpha = 1 - t;
+    const r = Math.round(255 - t * 30);
+    const g = Math.round(220 - t * 160);
+    const b = Math.round(120 - t * 100);
+    const color = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.save();
+    if (we.type === 'H') {
+      const y = PAD + (toViewWallR(we.r) + 1) * CELL - WALL_THICK / 2;
+      const x = PAD + toViewWallC(we.c) * CELL + CELL * 0.08;
+      const w = CELL * 2 - CELL * 0.16;
+      const h = WALL_THICK;
+      const cx = x + w / 2, cy = y + h / 2;
+      const sw = w * scale, sh = h * scale;
+      ctx.shadowColor = `rgba(255, 200, 80, ${alpha})`;
+      ctx.shadowBlur = 20 * alpha;
+      ctx.fillStyle = color;
+      roundRect(cx - sw / 2, cy - sh / 2, sw, sh, sh / 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      const x = PAD + (toViewWallC(we.c) + 1) * CELL - WALL_THICK / 2;
+      const y = PAD + toViewWallR(we.r) * CELL + CELL * 0.08;
+      const w = WALL_THICK;
+      const h = CELL * 2 - CELL * 0.16;
+      const cx = x + w / 2, cy = y + h / 2;
+      const sw = w * scale, sh = h * scale;
+      ctx.shadowColor = `rgba(255, 200, 80, ${alpha})`;
+      ctx.shadowBlur = 20 * alpha;
+      ctx.fillStyle = color;
+      roundRect(cx - sw / 2, cy - sh / 2, sw, sh, sw / 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    ctx.restore();
+    return true;
+  }
+
+  function getMoverVisual(m) {
+    if (!moversAnimActive || !moversAnimFrom) return { r: m.r, c: m.c };
+    const from = moversAnimFrom.find(x => x.id === m.id);
+    if (!from) return { r: m.r, c: m.c };
+    const elapsed = performance.now() - moversAnimStart;
+    if (elapsed >= MOVER_DURATION) return { r: m.r, c: m.c };
+    const t = Math.max(0, Math.min(1, elapsed / MOVER_DURATION));
+    const e = easeInOutQuad(t);
+    return {
+      r: from.r + (m.r - from.r) * e,
+      c: from.c + (m.c - from.c) * e,
+    };
+  }
+  function drawMoverH(row, col) {
+    const y = PAD + (toViewWallR(row) + 1) * CELL - WALL_THICK / 2;
+    const x = PAD + toViewWallC(col) * CELL + CELL * 0.08;
+    const w = CELL * 2 - CELL * 0.16;
+    ctx.fillStyle = '#5e6773';
+    roundRect(x + 1, y + 2.5, w, WALL_THICK, WALL_THICK / 2); ctx.fill();
+    ctx.fillStyle = '#8a94a0';
+    roundRect(x, y, w, WALL_THICK, WALL_THICK / 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    roundRect(x + CELL * 0.12, y + WALL_THICK * 0.22, w - CELL * 0.24, WALL_THICK * 0.28, WALL_THICK * 0.14); ctx.fill();
+  }
+
+  function getWindViewDir(dirR, dirC) {
+    const v = getViewAsPlayer();
+    if (v === 1) return { dirR, dirC };
+    return { dirR: -dirR, dirC: -dirC };
+  }
+  function drawWindWave() {
+    if (!windWave) return;
+    const elapsed = performance.now() - windWave.start;
+    const t = Math.min(1, elapsed / WIND_WAVE_DURATION);
+    if (t >= 1) return;
+    const vd = getWindViewDir(windWave.dirR, windWave.dirC);
+    const dirR = vd.dirR, dirC = vd.dirC;
+
+    const boardX = PAD, boardY = PAD, boardSize = N * CELL;
+    const thickness = CELL * 0.9;
+    let waveX, waveY;
+
+    if (dirC !== 0) {
+      const startX = dirC > 0 ? boardX - thickness : boardX + boardSize + thickness;
+      const endX = dirC > 0 ? boardX + boardSize + thickness : boardX - thickness;
+      waveX = startX + (endX - startX) * t;
+      waveY = boardY + boardSize / 2;
+    } else {
+      const startY = dirR > 0 ? boardY - thickness : boardY + boardSize + thickness;
+      const endY = dirR > 0 ? boardY + boardSize + thickness : boardY - thickness;
+      waveY = startY + (endY - startY) * t;
+      waveX = boardX + boardSize / 2;
+    }
+
+    const fade = Math.sin(Math.PI * t) * 0.55;
+    ctx.save();
+    if (dirC !== 0) {
+      const grad = ctx.createLinearGradient(waveX - thickness, 0, waveX + thickness, 0);
+      grad.addColorStop(0, `rgba(168, 200, 232, 0)`);
+      grad.addColorStop(0.5, `rgba(168, 200, 232, ${fade})`);
+      grad.addColorStop(1, `rgba(168, 200, 232, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(waveX - thickness, boardY, thickness * 2, boardSize);
+    } else {
+      const grad = ctx.createLinearGradient(0, waveY - thickness, 0, waveY + thickness);
+      grad.addColorStop(0, `rgba(168, 200, 232, 0)`);
+      grad.addColorStop(0.5, `rgba(168, 200, 232, ${fade})`);
+      grad.addColorStop(1, `rgba(168, 200, 232, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(boardX, waveY - thickness, boardSize, thickness * 2);
+    }
+    ctx.restore();
+  }
+
+  function drawWall(t, r, c, color, alpha) {
+    if (alpha === undefined) alpha = 1;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (t === 'H') drawWallH(toViewWallR(r), toViewWallC(c), color);
+    else drawWallV(toViewWallR(r), toViewWallC(c), color);
+    ctx.restore();
+  }
+  function drawWallH(r, c, color) {
+    const y = PAD + (r + 1) * CELL - WALL_THICK / 2;
+    const x = PAD + c * CELL + CELL * 0.08;
+    const w = CELL * 2 - CELL * 0.16;
+    ctx.fillStyle = color;
+    roundRect(x, y, w, WALL_THICK, WALL_THICK / 2); ctx.fill();
+  }
+  function drawWallV(r, c, color) {
+    const x = PAD + (c + 1) * CELL - WALL_THICK / 2;
+    const y = PAD + r * CELL + CELL * 0.08;
+    const h = CELL * 2 - CELL * 0.16;
+    ctx.fillStyle = color;
+    roundRect(x, y, WALL_THICK, h, WALL_THICK / 2); ctx.fill();
+  }
+
+  function drawPiece(row, col, color, alpha) {
+    if (alpha === undefined) alpha = 1;
+    const x = PAD + toViewC(col) * CELL + CELL / 2;
+    const y = PAD + toViewR(row) * CELL + CELL / 2;
+    const rad = CELL * 0.32;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.beginPath(); ctx.arc(x, y + 2, rad, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x - rad * 0.28, y - rad * 0.28, rad * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  function draw() {
+    if (!state) return;
+    const size = canvas.width / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, size, size);
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = PAD + toViewC(c) * CELL, y = PAD + toViewR(r) * CELL;
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#34373c' : '#2e3136';
+        ctx.fillRect(x, y, CELL, CELL);
+      }
+    }
+
+    if (gameMode === 'plates' && state.plates) {
+      for (const [pr, pc] of state.plates) drawPlate(pr, pc);
+    }
+    if (gameMode === 'arrows' && state.arrows) {
+      for (const a of state.arrows) drawArrowOutline(a);
+    }
+    if (gameMode === 'bushes' && state.bushes) {
+      for (const b of state.bushes) drawBush(b.r, b.c);
+    }
+    if (gameMode === 'infinite_walls' && state.bubbles) {
+      for (const b of state.bubbles) drawBubble(b);
+    }
+
+    if (gameMode === 'locks') {
+      if (!state.lock2Open) drawLockZone(LOCK2_POS[0], COLOR_P2, false);
+      if (!state.lock1Open) drawLockZone(LOCK1_POS[0], COLOR_P1, false);
+      if (!state.lock2Open) drawLockIcon(LOCK2_POS[0], COLOR_P2);
+      if (!state.lock1Open) drawLockIcon(LOCK1_POS[0], COLOR_P1);
+      if (state.keys) {
+        for (const k of state.keys) {
+          if (!k.collected) drawKey(k);
+        }
+      }
+      for (let i = keyCollectFx.length - 1; i >= 0; i--) {
+        const fx = keyCollectFx[i];
+        const t = (performance.now() - fx.start) / fx.duration;
+        if (t >= 1) { keyCollectFx.splice(i, 1); continue; }
+        drawKeyCollectFx(fx, t);
+      }
+    }
+
+    if (!isObserver && state.started && !state.gameOver && state.current === myPlayer && !dragState && !sending && !eventPlaying && !windPush) {
+      const moves = getAvailableMoves(myPlayer);
+      for (const [mr, mc] of moves) {
+        if (gameMode === 'arrows' && arrowAt(mr, mc)) continue;
+        const x = PAD + toViewC(mc) * CELL + CELL / 2;
+        const y = PAD + toViewR(mr) * CELL + CELL / 2;
+        ctx.beginPath(); ctx.arc(x, y, CELL * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
+      }
+      if (gameMode === 'fragile') {
+        const hits = getFragileHitTargets(myPlayer);
+        for (const [mr, mc] of hits) {
+          const x = PAD + toViewC(mc) * CELL + CELL / 2;
+          const y = PAD + toViewR(mr) * CELL + CELL / 2;
+          ctx.beginPath(); ctx.arc(x, y, CELL * 0.16, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,120,120,0.35)'; ctx.fill();
+          ctx.beginPath(); ctx.arc(x, y, CELL * 0.08, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,160,160,0.75)'; ctx.fill();
+        }
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= N; i++) {
+      const p = PAD + i * CELL;
+      ctx.beginPath(); ctx.moveTo(PAD, p); ctx.lineTo(PAD + N * CELL, p); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p, PAD); ctx.lineTo(p, PAD + N * CELL); ctx.stroke();
+    }
+
+    for (const k of state.walls) {
+      const w = parseWallKey(k);
+      const owner = w.player || 0;
+      let col;
+      if (owner === 1) col = COLOR_P1;
+      else if (owner === 2) col = COLOR_P2;
+      else col = '#79705f';
+
+      let alpha = 1;
+      if (gameMode === 'phantom') {
+        if (owner === myPlayer) alpha = 0.32;
+        else alpha = 1;
+      } else if (gameMode === 'fragile') {
+        const hp = (state.wallHp && state.wallHp[k]) || WALL_HP_MAX;
+        alpha = hp === WALL_HP_MAX ? 1 : (0.35 + 0.65 * (hp / WALL_HP_MAX));
+      }
+
+      drawWall(w.type, w.r, w.c, col, alpha);
+    }
+
+    if (gameMode === 'traps' && state.traps) {
+      for (const t of state.traps) {
+        if (t.triggered && !t.broken) drawTrapWalls(t);
+      }
+    }
+
+    if (gameMode === 'movers' && state.movers) {
+      for (const m of state.movers) {
+        const pos = getMoverVisual(m);
+        drawMoverH(pos.r, pos.c);
+      }
+    }
+
+    if (gameMode === 'portals' && state.portals) {
+      for (const p of state.portals) drawPortal(p.r, p.c, p.owner, 1, 1);
+      for (let i = portalFades.length - 1; i >= 0; i--) {
+        const f = portalFades[i];
+        const t = (performance.now() - f.start) / PORTAL_DISAPPEAR_DURATION;
+        if (t >= 1) { portalFades.splice(i, 1); continue; }
+        const fade = 1 - t;
+        const scale = 1 + t * 0.7;
+        drawPortal(f.r, f.c, f.owner, fade, scale);
+      }
+    }
+
+    if (!isObserver && dragState) drawPreviewWallAnim();
+
+    for (let i = explosions.length - 1; i >= 0; i--) {
+      if (!drawExplosion(explosions[i])) explosions.splice(i, 1);
+    }
+    for (let i = wallExplosions.length - 1; i >= 0; i--) {
+      if (!drawWallExplosion(wallExplosions[i])) wallExplosions.splice(i, 1);
+    }
+
+    if (gameMode === 'wind') drawWindWave();
+
+    const pos1 = getPiecePos('p1');
+    const pos2 = getPiecePos('p2');
+
+    const drawOrder = isObserver ? [1, 2] : [myPlayer === 1 ? 2 : 1, myPlayer];
+    for (const who of drawOrder) {
+      const alpha = getPieceAlpha(who);
+      if (alpha <= 0) continue;
+      const pos = who === 1 ? pos1 : pos2;
+      const color = who === 1 ? COLOR_P1 : COLOR_P2;
+      drawPiece(pos.r, pos.c, color, alpha);
+    }
+
+    if (!state.gameOver && !pieceAnim.p1 && !pieceAnim.p2 && !hitAnim && !windPush && !eventPlaying && !isObserver && !portalAttractAnim) {
+      if (state.current === myPlayer) {
+        const pos = state.current === 1 ? pos1 : pos2;
+        const activeAlpha = getPieceAlpha(state.current);
+        if (activeAlpha > 0) {
+          const x = PAD + toViewC(pos.c) * CELL + CELL / 2;
+          const y = PAD + toViewR(pos.r) * CELL + CELL / 2;
+          ctx.beginPath(); ctx.arc(x, y, CELL * 0.44, 0, Math.PI * 2);
+          ctx.strokeStyle = state.current === 1 ? COLOR_P1 : COLOR_P2;
+          ctx.lineWidth = 2; ctx.stroke();
+        }
+      }
+    }
+
+    if (gameMode === 'freeze' && iceProgress > 0.001) {
+      ctx.save();
+      ctx.fillStyle = `rgba(${ICE_TINT_R}, ${ICE_TINT_G}, ${ICE_TINT_B}, ${ICE_TINT_MAX_A * iceProgress})`;
+      ctx.fillRect(0, 0, size, size);
+      ctx.restore();
+    }
+  }
+
+  function drawPreviewWallAnim() {
+    if (!dragState) return;
+    const { animX, animY, preview, orient } = dragState;
+    const pColor = myPlayer === 1 ? COLOR_P1 : COLOR_P2;
+    ctx.save();
+    ctx.globalAlpha = preview ? 0.22 : 0.38;
+    ctx.fillStyle = pColor;
+    ctx.translate(animX, animY);
+    if (orient === 'h') roundRect(-CELL + CELL * 0.08, -WALL_THICK / 2, CELL * 2 - CELL * 0.16, WALL_THICK, WALL_THICK / 2);
+    else roundRect(-WALL_THICK / 2, -CELL + CELL * 0.08, WALL_THICK, CELL * 2 - CELL * 0.16, WALL_THICK / 2);
+    ctx.fill();
+    ctx.restore();
+    if (preview) {
+      const cx = PAD + (preview.viewC + 1) * CELL;
+      const cy = PAD + (preview.viewR + 1) * CELL;
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = pColor;
+      ctx.translate(cx, cy);
+      if (orient === 'h') roundRect(-CELL + CELL * 0.08, -WALL_THICK / 2, CELL * 2 - CELL * 0.16, WALL_THICK, WALL_THICK / 2);
+      else roundRect(-WALL_THICK / 2, -CELL + CELL * 0.08, WALL_THICK, CELL * 2 - CELL * 0.16, WALL_THICK / 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function getFragileHitTargets(player) {
+    const from = player === 1 ? state.p1 : state.p2;
+    const targets = [];
+    for (const [dr, dc] of DIRS_ORTHO) {
+      const mr = from[0] + dr, mc = from[1] + dc;
+      if (mr < 0 || mr >= N || mc < 0 || mc >= N) continue;
+      const w = findWallBetween(from[0], from[1], mr, mc);
+      if (w) targets.push([mr, mc]);
+    }
+    return targets;
+  }
+  function findWallBetween(r1, c1, r2, c2) {
+    const dr = r2 - r1, dc = c2 - c1;
+    if (dr === 0 && dc !== 0) {
+      const mc = Math.min(c1, c2);
+      const w1 = findWall('V', r1, mc);
+      if (w1) return w1;
+      const w2 = findWall('V', r1 - 1, mc);
+      if (w2) return w2;
+    }
+    if (dc === 0 && dr !== 0) {
+      const mr = Math.min(r1, r2);
+      const w1 = findWall('H', mr, c1);
+      if (w1) return w1;
+      const w2 = findWall('H', mr, c1 - 1);
+      if (w2) return w2;
+    }
+    return null;
+  }
+
+  function getAvailableMoves(player) {
+    if (!state || state.gameOver) return [];
+    const from = player === 1 ? state.p1 : state.p2;
+    const enemy = player === 1 ? state.p2 : state.p1;
+
+    if (gameMode === 'traps' && cellLockedByTrap(from[0], from[1])) {
+      const hits = [];
+      for (const [dr, dc] of DIRS_ORTHO) {
+        const mr = from[0] + dr, mc = from[1] + dc;
+        if (mr < 0 || mr >= N || mc < 0 || mc >= N) continue;
+        if (mr === enemy[0] && mc === enemy[1]) continue;
+        hits.push([mr, mc]);
+      }
+      return hits;
+    }
+
+    const dirs = gameMode === 'free' ? DIRS_ORTHO.concat(DIRS_DIAG) : DIRS_ORTHO;
+    const enemyTrapped = gameMode === 'traps' && cellLockedByTrap(enemy[0], enemy[1]);
+    const moves = [];
+
+    for (const [dr, dc] of dirs) {
+      const mr = from[0] + dr, mc = from[1] + dc;
+      if (mr < 0 || mr >= N || mc < 0 || mc >= N) continue;
+      if (isBlocked(from[0], from[1], mr, mc, player)) continue;
+      if (gameMode === 'plates' && isPlate(mr, mc)) continue;
+      if (gameMode === 'movers' && dc === 0 && dr !== 0) {
+        const mrr = Math.min(from[0], mr);
+        if (moverExists('H', mrr, from[1]) || moverExists('H', mrr, from[1] - 1)) continue;
+      }
+
+      if (mr === enemy[0] && mc === enemy[1]) {
+        if (enemyTrapped) continue;
+        const jr = mr + dr, jc = mc + dc;
+        const jw = isBlocked(mr, mc, jr, jc, player);
+        const jo = jr < 0 || jr >= N || jc < 0 || jc >= N;
+        const jPlate = !jo && gameMode === 'plates' && isPlate(jr, jc);
+        if (!jw && !jo && !jPlate) moves.push([jr, jc]);
+        else {
+          const sides = dr === 0 ? [[-1,0],[1,0]] : (dc === 0 ? [[0,-1],[0,1]] : []);
+          for (const [sr, sc] of sides) {
+            const dr2 = mr + sr, dc2 = mc + sc;
+            if (dr2 < 0 || dr2 >= N || dc2 < 0 || dc2 >= N) continue;
+            if (isBlocked(mr, mc, dr2, dc2, player)) continue;
+            if (isBlocked(from[0], from[1], dr2, dc2, player)) continue;
+            if (gameMode === 'plates' && isPlate(dr2, dc2)) continue;
+            moves.push([dr2, dc2]);
+          }
+        }
+        continue;
+      }
+      moves.push([mr, mc]);
+    }
+    const seen = new Set();
+    return moves.filter(([r, c]) => { const k = r + ',' + c; if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+
+  function tickAnimations() {
+    if (animRaf) return;
+    animRaf = requestAnimationFrame(() => {
+      const now = performance.now();
+      let active = false;
+
+      for (const who of ['p1', 'p2']) {
+        const a = pieceAnim[who];
+        if (!a) continue;
+        if (now - a.start >= a.duration) {
+          pieceAnim[who] = null;
+          if (a.onDone) a.onDone();
+        } else active = true;
+      }
+      if (teleportAnim) {
+        if (now - teleportAnim.start >= teleportAnim.duration) {
+          const cb = teleportAnim.onDone;
+          teleportAnim = null;
+          if (cb) cb();
+        } else active = true;
+      }
+      if (portalAttractAnim) {
+        if (now - portalAttractAnim.start >= portalAttractAnim.duration) {
+          const cb = portalAttractAnim.onDone;
+          portalAttractAnim = null;
+          if (cb) cb();
+        } else active = true;
+      }
+      if (hitAnim) {
+        if (now - hitAnim.start >= hitAnim.duration) {
+          const cb = hitAnim.onDone;
+          hitAnim = null;
+          if (cb) cb();
+        } else active = true;
+      }
+      if (moversAnimActive) {
+        if (now - moversAnimStart >= MOVER_DURATION) {
+          moversAnimActive = false;
+          moversAnimFrom = null;
+        } else active = true;
+      }
+      if (explosions.length || wallExplosions.length) active = true;
+      if (portalFades.length) active = true;
+      if (keyCollectFx.length) active = true;
+      if (eventQueue.length || eventPlaying) active = true;
+
+      const target = (gameMode === 'freeze' && state && state.frozen) ? 1 : 0;
+      if (Math.abs(iceProgress - target) > 0.001) {
+        iceProgress += (target - iceProgress) * 0.15;
+        active = true;
+      } else {
+        iceProgress = target;
+      }
+
+      draw();
+      if (active) {
+        animRaf = null;
+        tickAnimations();
+      } else {
+        animRaf = null;
+        draw();
+      }
+    });
+  }
+
+  function getPiecePos(who) {
+    const playerNum = who === 'p1' ? 1 : 2;
+
+    if (portalAttractAnim && portalAttractAnim.player === playerNum) {
+      const now = performance.now();
+      const t = Math.min(1, (now - portalAttractAnim.start) / portalAttractAnim.duration);
+      const e = easeInQuad(t);
+      return {
+        r: portalAttractAnim.fromR + (portalAttractAnim.toR - portalAttractAnim.fromR) * e,
+        c: portalAttractAnim.fromC + (portalAttractAnim.toC - portalAttractAnim.fromC) * e,
+      };
+    }
+
+    if (teleportAnim && teleportAnim.player === playerNum) {
+      const now = performance.now();
+      const t = Math.min(1, (now - teleportAnim.start) / teleportAnim.duration);
+      const e = easeInOutQuad(t);
+      return {
+        r: teleportAnim.fromR + (teleportAnim.toR - teleportAnim.fromR) * e,
+        c: teleportAnim.fromC + (teleportAnim.toC - teleportAnim.fromC) * e,
+      };
+    }
+
+    if (hitAnim && hitAnim.player === playerNum) {
+      const now = performance.now();
+      const t = Math.min(1, (now - hitAnim.start) / hitAnim.duration);
+      const kick = Math.sin(Math.PI * t) * 0.35;
+      const visual = who === 'p1' ? visualP1 : visualP2;
+      return {
+        r: visual[0] + hitAnim.dirR * kick,
+        c: visual[1] + hitAnim.dirC * kick,
+      };
+    }
+
+    if (windPush && gameMode === 'wind') {
+      const elapsed = performance.now() - windPush.start;
+      const f = who === 'p1' ? windPush.p1From : windPush.p2From;
+      const to = who === 'p1' ? windPush.p1To : windPush.p2To;
+      if (elapsed <= 0) return { r: f[0], c: f[1] };
+      const t = clamp01(elapsed / windPush.duration);
+      const e = easeInOutQuad(t);
+      return {
+        r: f[0] + (to[0] - f[0]) * e,
+        c: f[1] + (to[1] - f[1]) * e,
+      };
+    }
+
+    const a = pieceAnim[who];
+    if (a) {
+      const now = performance.now();
+      const t = Math.min(1, (now - a.start) / a.duration);
+      const e = easeOutQuad(t);
+      return {
+        r: a.fromR + (a.toR - a.fromR) * e,
+        c: a.fromC + (a.toC - a.fromC) * e,
+      };
+    }
+
+    const visual = who === 'p1' ? visualP1 : visualP2;
+    return { r: visual[0], c: visual[1] };
+  }
+
+  function startPieceAnim(who, fromR, fromC, toR, toC, onDone) {
+    pieceAnim[who] = { fromR, fromC, toR, toC, start: performance.now(), duration: MOVE_DURATION, onDone };
+    tickAnimations();
+  }
+  function startTeleportAnim(player, fromR, fromC, toR, toC, onDone) {
+    teleportAnim = { player, fromR, fromC, toR, toC, start: performance.now(), duration: TELEPORT_DURATION, onDone };
+    tickAnimations();
+  }
+  function startPortalAttract(player, fromR, fromC, toR, toC, onDone) {
+    portalAttractAnim = {
+      player, fromR, fromC, toR, toC,
+      start: performance.now(),
+      duration: PORTAL_ATTRACT_DURATION,
+      onDone,
+    };
+    tickAnimations();
+  }
+  function startHitAnim(player, dirR, dirC, onDone) {
+    hitAnim = {
+      player, dirR, dirC,
+      start: performance.now(),
+      duration: HIT_KICK_DURATION,
+      onDone,
+    };
+    tickAnimations();
+  }
+
+  function playTurnEvents(events) {
+    eventQueue.push(...events);
+    if (!eventPlaying) playNextEvent();
+  }
+
+  function playNextEvent() {
+    if (!eventQueue.length) {
+      eventPlaying = false;
+      windWave = null;
+      windPush = null;
+      if (state) {
+        visualP1 = [...state.p1];
+        visualP2 = [...state.p2];
+      }
+      refresh();
+      return;
+    }
+    eventPlaying = true;
+    const ev = eventQueue.shift();
+
+    if (ev.type === 'move') {
+      const who = ev.player === 1 ? 'p1' : 'p2';
+      const from = ev.from;
+      const to = ev.to;
+      if (who === 'p1') visualP1 = [...from];
+      else visualP2 = [...from];
+      startPieceAnim(who, from[0], from[1], to[0], to[1], () => {
+        if (who === 'p1') visualP1 = [...to];
+        else visualP2 = [...to];
+        setTimeout(playNextEvent, EVENT_GAP);
+      });
+    } else if (ev.type === 'teleport') {
+      const cur = ev.player === 1 ? [...visualP1] : [...visualP2];
+      startTeleportAnim(ev.player, cur[0], cur[1], ev.to[0], ev.to[1], () => {
+        if (ev.player === 1) visualP1 = [...ev.to];
+        else visualP2 = [...ev.to];
+        setTimeout(playNextEvent, EVENT_GAP);
+      });
+    } else if (ev.type === 'portal_teleport') {
+      const cur = ev.player === 1 ? [...visualP1] : [...visualP2];
+      startPortalAttract(ev.player, cur[0], cur[1], ev.to[0], ev.to[1], () => {
+        if (ev.player === 1) visualP1 = [...ev.to];
+        else visualP2 = [...ev.to];
+
+        const cx = PAD + toViewC(ev.to[1]) * CELL + CELL / 2;
+        const cy = PAD + toViewR(ev.to[0]) * CELL + CELL / 2;
+        const color = ev.player === 1 ? COLOR_P1 : COLOR_P2;
+
+        explosions.push({
+          cx, cy,
+          start: performance.now(),
+          duration: 700,
+          maxRadius: CELL * 1.05,
+          color: (a) => hexToRgba(color, a * 0.9),
+          color2: (a) => hexToRgba('#ffffff', a * 0.4),
+        });
+
+        portalFades.push({
+          r: ev.to[0], c: ev.to[1], owner: ev.player,
+          start: performance.now(),
+        });
+
+        tickAnimations();
+
+        setTimeout(playNextEvent, PORTAL_DISAPPEAR_DURATION);
+      });
+    } else if (ev.type === 'portal_place' || ev.type === 'portal_disappear') {
+      setTimeout(playNextEvent, 120);
+    } else if (ev.type === 'hit') {
+      startHitAnim(ev.player, ev.dirR, ev.dirC, () => {
+        setTimeout(playNextEvent, EVENT_GAP);
+      });
+    } else if (ev.type === 'bomb') {
+      const cx = PAD + toViewC(ev.c) * CELL + CELL / 2;
+      const cy = PAD + toViewR(ev.r) * CELL + CELL / 2;
+      explosions.push({ cx, cy, start: performance.now(), duration: BOMB_EXPLOSION_DURATION, maxRadius: CELL * 1.05 });
+      if (ev.destroyed) {
+        ev.destroyed.forEach((dk, j) => {
+          const [t, r, c] = dk.split(':');
+          wallExplosions.push({ type: t, r: parseInt(r), c: parseInt(c), start: performance.now() + j * 30, duration: 380 });
+        });
+      }
+      tickAnimations();
+      setTimeout(playNextEvent, BOMB_EXPLOSION_DURATION);
+    } else if (ev.type === 'trap_trigger') {
+      const key = `${ev.r}:${ev.c}`;
+      trapSpins.set(key, performance.now());
+      tickAnimations();
+      setTimeout(playNextEvent, TRAP_SPIN_DURATION);
+    } else if (ev.type === 'movers') {
+      tickAnimations();
+      setTimeout(playNextEvent, MOVER_DURATION + 60);
+    } else if (ev.type === 'mover') {
+      tickAnimations();
+      setTimeout(playNextEvent, MOVER_DURATION + 60);
+    } else if (ev.type === 'wind') {
+      windWave = { dirR: ev.dirR, dirC: ev.dirC, start: performance.now() };
+      visualP1 = [...ev.p1From];
+      visualP2 = [...ev.p2From];
+      windPush = {
+        p1From: [...ev.p1From], p1To: [...ev.p1To],
+        p2From: [...ev.p2From], p2To: [...ev.p2To],
+        start: performance.now() + WIND_PUSH_DELAY,
+        duration: WIND_PUSH_DURATION,
+      };
+      tickAnimations();
+      setTimeout(() => {
+        visualP1 = [...ev.p1To];
+        visualP2 = [...ev.p2To];
+        windWave = null;
+        windPush = null;
+        playNextEvent();
+      }, WIND_PUSH_DELAY + WIND_PUSH_DURATION + 60);
+    } else if (ev.type === 'key_collect') {
+      keyCollectFx.push({
+        r: ev.r, c: ev.c, owner: ev.owner,
+        start: performance.now(),
+        duration: KEY_COLLECT_DURATION,
+      });
+      tickAnimations();
+      setTimeout(playNextEvent, KEY_COLLECT_DURATION - 200);
+    } else if (ev.type === 'freeze') {
+      setTimeout(playNextEvent, 180);
+    } else if (ev.type === 'wall') {
+      setTimeout(playNextEvent, 120);
+    } else if (ev.type === 'bubble_collect' || ev.type === 'bubble_spawn') {
+      setTimeout(playNextEvent, 120);
+    } else {
+      setTimeout(playNextEvent, 60);
+    }
+  }
+
+  function refresh() {
+    draw();
+    if (!state) return;
+
+    let topPlayer, bottomPlayer;
+    if (isObserver) { topPlayer = 2; bottomPlayer = 1; }
+    else { topPlayer = myPlayer === 1 ? 2 : 1; bottomPlayer = myPlayer; }
+
+    const topMeta = playersMeta[topPlayer] || {};
+    setAvatarDOM(enemyAvatar, topPlayer, topMeta);
+    enemyName.textContent = topMeta.name || ('Игрок ' + topPlayer);
+    enemyPanel.classList.remove('active-1', 'active-2');
+
+    const topLeft = topPlayer === 1 ? state.left1 : state.left2;
+    const topDots = enemyDotsEl.children;
+    for (let i = 0; i < topDots.length; i++) topDots[i].className = 'dot' + (i < topLeft ? ' me-' + topPlayer : '');
+    const topActive = !state.gameOver && state.current === topPlayer;
+    enemyPanel.classList.toggle('active-' + topPlayer, topActive);
+    enemyTurn.classList.toggle('show', topActive);
+    enemyAvatar.classList.toggle('active', topActive);
+
+    if (gameMode === 'bombs') {
+      const enemyBombCount = topPlayer === 1 ? state.bombs1 : state.bombs2;
+      const enemyBombDots = enemyBombsEl.children;
+      for (let i = 0; i < enemyBombDots.length; i++) {
+        enemyBombDots[i].className = 'dot ' + (i < enemyBombCount ? 'bomb' : 'bomb empty');
+      }
+    }
+
+    if (gameMode === 'freeze') {
+      const topFreeze = topPlayer === 1 ? state.freeze1 : state.freeze2;
+      const enS = enemySnowEl.children;
+      for (let i = 0; i < enS.length; i++) {
+        enS[i].className = 'snow-dot ' + (i < topFreeze ? 'ready' : 'empty');
+      }
+      const topFrozen = state.frozen === topPlayer;
+      if (topFrozen && state.frozenMovesLeft > 0) {
+        enemyFreezeMovesEl.textContent = 'Ходов: ' + state.frozenMovesLeft;
+        enemyFreezeMovesEl.classList.add('show');
+      } else {
+        enemyFreezeMovesEl.classList.remove('show');
+      }
+    }
+
+    const botMeta = playersMeta[bottomPlayer] || {};
+    setAvatarDOM(myAvatar, bottomPlayer, botMeta);
+    myName.textContent = botMeta.name || ('Игрок ' + bottomPlayer);
+    myPanel.classList.remove('active-1', 'active-2');
+    myDrags.querySelectorAll('.drag-item').forEach(item => { item.classList.remove('me-1', 'me-2'); item.classList.add('me-' + bottomPlayer); });
+
+    const botLeft = bottomPlayer === 1 ? state.left1 : state.left2;
+    const botDots = myDotsEl.children;
+    for (let i = 0; i < botDots.length; i++) botDots[i].className = 'dot' + (i < botLeft ? ' me-' + bottomPlayer : '');
+    const botActive = !state.gameOver && state.current === bottomPlayer;
+    myPanel.classList.toggle('active-' + bottomPlayer, botActive);
+    myTurn.classList.toggle('show', botActive);
+    myAvatar.classList.toggle('active', botActive);
+
+    if (gameMode === 'bombs') {
+      const myBombCount = bottomPlayer === 1 ? state.bombs1 : state.bombs2;
+      const myBombDots = myBombsEl.children;
+      for (let i = 0; i < myBombDots.length; i++) {
+        myBombDots[i].className = 'dot ' + (i < myBombCount ? 'bomb' : 'bomb empty');
+      }
+      bombCnt.textContent = myBombCount;
+      btnBomb.disabled = myBombCount <= 0 || state.gameOver || state.current !== myPlayer || sending;
+      btnBomb.classList.toggle('hidden', isObserver);
+    } else {
+      btnBomb.classList.add('hidden');
+    }
+
+    if (gameMode === 'freeze') {
+      const myFreeze = bottomPlayer === 1 ? state.freeze1 : state.freeze2;
+      const myS = mySnowEl.children;
+      for (let i = 0; i < myS.length; i++) {
+        myS[i].className = 'snow-dot ' + (i < myFreeze ? 'ready' : 'empty');
+      }
+      freezeCnt.textContent = myFreeze;
+      const isActive = state.frozen === myPlayer;
+      btnFreeze.classList.toggle('active', isActive);
+      const myCd = myPlayer === 1 ? state.freeze1Cooldown : state.freeze2Cooldown;
+      const canUse = !isObserver
+        && state.current === myPlayer
+        && !isActive
+        && !myCd
+        && myFreeze > 0
+        && !state.gameOver
+        && !sending;
+      btnFreeze.disabled = !canUse;
+      btnFreeze.classList.toggle('hidden', isObserver);
+      if (isActive && state.frozenMovesLeft > 0) {
+        myFreezeMovesEl.textContent = 'Ходов: ' + state.frozenMovesLeft;
+        myFreezeMovesEl.classList.add('show');
+      } else {
+        myFreezeMovesEl.classList.remove('show');
+      }
+    } else {
+      btnFreeze.classList.add('hidden');
+      myFreezeMovesEl.classList.remove('show');
+    }
+
+    if (gameMode === 'portals') {
+      btnPortal.classList.toggle('hidden', isObserver);
+      if (!isObserver) {
+        btnPortal.classList.remove('me-1', 'me-2');
+        btnPortal.classList.add('me-' + myPlayer);
+        const myLeft = myPlayer === 1 ? state.portals1 : state.portals2;
+        portalCnt.textContent = myLeft;
+        const hasPortal = !!findPortal(myPlayer);
+        const onPortal = portalPlayerOnIt(myPlayer);
+        if (!hasPortal) {
+          btnPortal.classList.remove('mode-teleport');
+          btnPortal.classList.add('mode-place');
+          btnPortal.disabled = myLeft <= 0 || state.gameOver || state.current !== myPlayer || sending;
+        } else {
+          btnPortal.classList.remove('mode-place');
+          btnPortal.classList.add('mode-teleport');
+          btnPortal.disabled = onPortal || !portalActive(myPlayer) || state.gameOver || state.current !== myPlayer || sending;
+        }
+      }
+    } else {
+      btnPortal.classList.add('hidden');
+    }
+
+    if (isObserver) {
+      myDrags.style.display = 'none';
+      btnSurrender.classList.add('hidden');
+      btnBomb.classList.add('hidden');
+      btnPortal.classList.add('hidden');
+      btnFreeze.classList.add('hidden');
+    } else {
+      myDrags.style.display = '';
+      const myTurnActive = !state.gameOver && state.current === myPlayer;
+      const activeLeft = myPlayer === 1 ? state.left1 : state.left2;
+      myDrags.querySelectorAll('.drag-item').forEach(item => {
+        item.classList.toggle('disabled', !myTurnActive || activeLeft <= 0 || sending);
+      });
+      if (state.started && !state.gameOver) btnSurrender.classList.remove('hidden');
+      else btnSurrender.classList.add('hidden');
+    }
+
+    updateObserversBadge();
+    tickAnimations();
+  }
+
+  function applyState(s) {
+    const prev = state;
+    state = s;
+    if (s.players) playersMeta = s.players;
+    if (s.observers) observersList = s.observers;
+
+    if (!prev) {
+      visualP1 = [...s.p1];
+      visualP2 = [...s.p2];
+      if (s.movers && s.movers.length) {
+        moversAnimFrom = s.movers.map(m => ({ id: m.id, r: m.r, c: m.c }));
+      }
+    } else {
+      if (gameMode === 'movers' && s.movers && prev.movers && s.movers.length) {
+        const moved = s.movers.some(m => {
+          const pm = prev.movers.find(x => x.id === m.id);
+          return pm && (pm.r !== m.r || pm.c !== m.c);
+        });
+        if (moved) {
+          moversAnimFrom = prev.movers.map(m => ({ id: m.id, r: m.r, c: m.c }));
+          moversAnimStart = performance.now();
+          moversAnimActive = true;
+          tickAnimations();
+        }
+      }
+    }
+
+    const newTurnIndex = s.turnIndex || 0;
+    const events = s.lastTurnEvents || [];
+    if (newTurnIndex > lastAnimatedTurnIndex && events.length) {
+      lastAnimatedTurnIndex = newTurnIndex;
+      if (!eventPlaying && eventQueue.length === 0) {
+        const first = events[0];
+        if (first && first.type === 'move') {
+          if (first.player === 1) visualP1 = [...first.from];
+          else visualP2 = [...first.from];
+        } else if (first && first.type === 'wind') {
+          visualP1 = [...first.p1From];
+          visualP2 = [...first.p2From];
+        } else if (first && first.type === 'portal_teleport') {
+          if (first.player === 1) visualP1 = [...first.from];
+          else visualP2 = [...first.from];
+        }
+      }
+      playTurnEvents(events);
+    } else if (newTurnIndex > lastAnimatedTurnIndex) {
+      lastAnimatedTurnIndex = newTurnIndex;
+      if (!eventPlaying && eventQueue.length === 0) {
+        visualP1 = [...s.p1];
+        visualP2 = [...s.p2];
+      }
+    }
+  }
+
+  function handleGameOver(winner, replayId) {
+    if (lastGameOverShown) return;
+    lastGameOverShown = true;
+    stopPolling();
+    showWinScreen(winner, replayId);
+  }
+
+  async function fetchState() {
+    if (!roomCode) return;
+    if (lastGameOverShown) return;
+    try {
+      const s = await api(`/api/state/${roomCode}`);
+      applyState(s);
+      refresh();
+      if (s.started && screens.waiting.classList.contains('active')) {
+        resizeCanvas(); refresh(); showScreen('game');
+      }
+      if (s.gameOver && s.winner) handleGameOver(s.winner, s.replayId);
+    } catch (e) {
+      if (lastGameOverShown) return;
+      if (e.status === 404) {
+        stopPolling();
+        showError('Комната недоступна', 'Возможно, игра уже завершена.');
+        return;
+      }
+      stopPolling();
+      showDialog({
+        title: 'Соединение потеряно',
+        text: 'Возможно, комната закрыта.',
+        buttons: [{ label: 'ОК', primary: true, onClick: () => { if (tg) { try { tg.close(); } catch (err) {} } } }]
+      });
+    }
+  }
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(fetchState, POLL_INTERVAL);
+    fetchState();
+  }
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function showWinScreen(winner, replayId) {
+    const loser = winner === 1 ? 2 : 1;
+    const wmeta = playersMeta[winner] || {};
+    const lmeta = playersMeta[loser] || {};
+
+    if (wmeta.photo) winnerAvatarEl.innerHTML = `<img src="${wmeta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else winnerAvatarEl.textContent = (wmeta.name || 'И').charAt(0).toUpperCase();
+    winnerAvatarEl.classList.toggle('is-p2', winner === 2);
+
+    if (lmeta.photo) loserAvatarEl.innerHTML = `<img src="${lmeta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else loserAvatarEl.textContent = (lmeta.name || 'П').charAt(0).toUpperCase();
+
+    winnerNameEl.textContent = wmeta.name || ('Игрок ' + winner);
+    loserNameEl.textContent = lmeta.name || ('Игрок ' + loser);
+
+    winScreen.classList.add('show');
+
+    btnWinClose.onclick = () => {
+      winScreen.classList.remove('show');
+      if (tg) { try { tg.close(); } catch (e) {} }
+    };
+    btnWinShare.onclick = () => {
+      if (replayId && tg && tg.switchInlineQuery) {
+        try { tg.switchInlineQuery('replay_' + replayId, ['users', 'groups', 'channels']); }
+        catch (e) {}
+      }
+    };
+  }
+
+  function setAvatarDOM(el, playerNum, meta) {
+    if (!el) return;
+    el.classList.remove('me-1', 'me-2', 'active');
+    if (playerNum) el.classList.add('me-' + playerNum);
+    if (meta && meta.photo) el.innerHTML = `<img src="${meta.photo}" alt="" referrerpolicy="no-referrer">`;
+    else if (meta && meta.name) el.textContent = meta.name.charAt(0).toUpperCase();
+    else el.textContent = playerNum || '?';
+  }
+
+  function updateObserversBadge() {
+    const n = observersList.length;
+    if (n === 0) { obsBadge.classList.remove('visible'); return; }
+    obsBadge.classList.add('visible');
+    if (n <= 3) {
+      obsStack.style.display = 'flex';
+      obsCount.style.display = 'none';
+      obsStack.innerHTML = '';
+      observersList.forEach(o => {
+        const a = document.createElement('div');
+        a.className = 'obs-ava';
+        if (o.photo) a.innerHTML = `<img src="${o.photo}" alt="" referrerpolicy="no-referrer">`;
+        else a.textContent = (o.name || '?').charAt(0).toUpperCase();
+        obsStack.appendChild(a);
+      });
+    } else {
+      obsStack.style.display = 'none';
+      obsCount.style.display = 'block';
+      obsCount.textContent = String(n);
+      obsStack.innerHTML = '';
+    }
+  }
+
+  function buildDots(container, count) {
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      container.appendChild(d);
+    }
+  }
+  function buildSnow(container, count) {
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('div');
+      d.className = 'snow-dot';
+      d.innerHTML = `<svg viewBox="0 0 24 24">${FREEZE_ICON}</svg>`;
+      container.appendChild(d);
+    }
+  }
+
+  btnSurrender.addEventListener('click', () => {
+    if (!state || state.gameOver) return;
+    showDialog({
+      title: 'Сдаться?',
+      text: 'Соперник сразу победит. Партия сохранится в повтор.',
+      buttons: [
+        { label: 'Отмена' },
+        { label: 'Сдаться', danger: true, onClick: doSurrender }
+      ]
+    });
+  });
+
+  async function doSurrender() {
+    if (!roomCode || !myPlayer) return;
+    try {
+      const res = await api(`/api/surrender/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ player: myPlayer }),
+      });
+      if (res && res.gameOver && res.winner) {
+        applyState({ ...state, ...res });
+        handleGameOver(res.winner, res.replayId);
+      }
+    } catch (e) {
+      if (e.status === 404) { stopPolling(); showError('Комната недоступна', 'Игра уже завершена.'); }
+    }
+  }
+
+  btnBomb.addEventListener('click', () => {
+    if (isObserver) return;
+    if (!state || state.gameOver) return;
+    if (state.current !== myPlayer) return;
+    sendMove({ type: 'bomb' });
+  });
+
+  btnPortal.addEventListener('click', () => {
+    if (isObserver) return;
+    if (!state || state.gameOver) return;
+    if (gameMode !== 'portals') return;
+    if (state.current !== myPlayer || sending) return;
+    sendMove({ type: 'portal' });
+  });
+
+  btnFreeze.addEventListener('click', () => {
+    if (isObserver) return;
+    if (!state || state.gameOver) return;
+    if (gameMode !== 'freeze') return;
+    if (state.current !== myPlayer || sending) return;
+    const isActive = state.frozen === myPlayer;
+    const cd = myPlayer === 1 ? state.freeze1Cooldown : state.freeze2Cooldown;
+    const cnt = myPlayer === 1 ? state.freeze1 : state.freeze2;
+    if (isActive || cd || cnt <= 0) return;
+    sendMove({ type: 'freeze' });
+  });
+
+  obsBadge.addEventListener('click', () => showObserversPopup());
+
+  // ============================================================
+  // ПОВТОР
+  // ============================================================
+  let replayData = null;
+  let replayP1 = [0, 0], replayP2 = [0, 0], replayWalls = [];
+  let replayPlates = [], replayArrows = [], replayBubbles = [], replayBushes = [], replayTraps = [], replayMovers = [];
+  let replayPortals = [], replayKeys = [];
+  let replayWallHp = {};
+  let replayMode = 'classic';
+  let replayStep = 0;
+  let replayPieceAnim = { p1: null, p2: null };
+  let replayHitAnim = null;
+  let replayAnimRaf = null;
+  let replayWallOwnerMap = new Map();
+  let replayExplosions = [];
+  let replayWallExplosions = [];
+  let replayMoversFrom = null;
+  let replayMoversStart_time = 0;
+  let replayMoversActive = false;
+
+  let replayTrapSpins = new Map();
+  let replayTrapBrokenAnims = new Map();
+  let replayPortalAttract = null;
+  let replayPortalFades = [];
+  let replayWindWave = null;
+  let replayWindPush = null;
+  let replayKeyCollectFx = [];
+  let replayFreezeProgress = 0;
+  let replayLockOpenAnims = new Map();
+
+  let replayInitialKeys = [];
+  let replayInitialTraps = [];
+
+  let replayChips = [];
+  let replayCurrentFrozen = 0;
+  let replayCurrentFrozenMovesLeft = 0;
+
+  // Очередь событий для последовательного проигрывания чипа
+  let replayEventQueue = [];
+  let replayEventPlaying = false;
+  let replayChipCtx = null;
+
+  // Быстрая проверка: идёт ли анимация в реплее
+  function replayIsAnimating() {
+    return !!(replayPieceAnim.p1 || replayPieceAnim.p2 || replayHitAnim ||
+              replayPortalAttract || replayWindPush || replayEventPlaying ||
+              replayMoversActive || replayExplosions.length || replayWallExplosions.length ||
+              replayKeyCollectFx.length);
+  }
+
+  const replayCanvas = document.getElementById('replayBoard');
+  const replayCtx = replayCanvas.getContext('2d');
+  const movesListEl = document.getElementById('movesList');
+  const btnReplayPrev = document.getElementById('btnReplayPrev');
+  const btnReplayNext = document.getElementById('replayNext');
+  const btnReplayShare = document.getElementById('btnReplayShare');
+  const replayCounterCurrent = document.getElementById('replayCounterCurrent');
+  const replayCounterTotal = document.getElementById('replayCounterTotal');
+  const replayProgress = document.getElementById('replayProgress');
+  const replayModeTag = document.getElementById('replayModeTag');
+
+  const replayAvatarP1 = document.getElementById('replayAvatarP1');
+  const replayAvatarP2 = document.getElementById('replayAvatarP2');
+  const replayNameP1 = document.getElementById('replayNameP1');
+  const replayNameP2 = document.getElementById('replayNameP2');
+  const replayChipP1 = document.getElementById('replayChipP1');
+  const replayChipP2 = document.getElementById('replayChipP2');
+  const replayDotsP1 = document.getElementById('replayDotsP1');
+  const replayDotsP2 = document.getElementById('replayDotsP2');
+  const replayBombsP1 = document.getElementById('replayBombsP1');
+  const replayBombsP2 = document.getElementById('replayBombsP2');
+  const replaySnowP1 = document.getElementById('replaySnowP1');
+  const replaySnowP2 = document.getElementById('replaySnowP2');
+
+  let R_CELL = 0, R_PAD = 0, R_WALL_THICK = 0;
+  function resizeReplayCanvas() {
+    const area = replayCanvas.closest('.board-area');
+    const rect = area.getBoundingClientRect();
+    const size = Math.min(rect.width, rect.height);
+    const dpr = window.devicePixelRatio || 1;
+    replayCanvas.width = Math.floor(size * dpr);
+    replayCanvas.height = Math.floor(size * dpr);
+    replayCanvas.style.width = size + 'px';
+    replayCanvas.style.height = size + 'px';
+    replayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    R_PAD = size * 0.04;
+    R_CELL = (size - R_PAD * 2) / N;
+    R_WALL_THICK = Math.max(4, R_CELL * 0.14);
+  }
+
+  function replayStartAnim(who, fromR, fromC, toR, toC) {
+    if (fromR === toR && fromC === toC) return;
+    replayPieceAnim[who] = { fromR, fromC, toR, toC, start: performance.now(), duration: MOVE_DURATION };
+    if (!replayAnimRaf) replayTick();
+  }
+  function replayStartHitAnim(player, dirR, dirC) {
+    replayHitAnim = {
+      player, dirR, dirC,
+      start: performance.now(),
+      duration: HIT_KICK_DURATION,
+    };
+    if (!replayAnimRaf) replayTick();
+  }
+  function replayStartPortalAttract(player, fromR, fromC, toR, toC) {
+    replayPortalAttract = {
+      player, fromR, fromC, toR, toC,
+      start: performance.now(),
+      duration: PORTAL_ATTRACT_DURATION,
+    };
+    if (!replayAnimRaf) replayTick();
+  }
+  function replayTick() {
+    replayAnimRaf = requestAnimationFrame(() => {
+      const now = performance.now();
+      let active = false;
+      for (const who of ['p1', 'p2']) {
+        const a = replayPieceAnim[who];
+        if (!a) continue;
+        if (now - a.start >= a.duration) replayPieceAnim[who] = null;
+        else active = true;
+      }
+      if (replayHitAnim) {
+        if (now - replayHitAnim.start >= replayHitAnim.duration) replayHitAnim = null;
+        else active = true;
+      }
+      if (replayPortalAttract) {
+        if (now - replayPortalAttract.start >= replayPortalAttract.duration) {
+          const pa = replayPortalAttract;
+          const cx = R_PAD + pa.toC * R_CELL + R_CELL / 2;
+          const cy = R_PAD + pa.toR * R_CELL + R_CELL / 2;
+          replayExplosions.push({
+            cx, cy,
+            start: performance.now(),
+            duration: 700,
+            maxRadius: R_CELL * 1.05,
+            custom: true,
+            player: pa.player,
+          });
+          replayPortalFades.push({
+            r: pa.toR, c: pa.toC, owner: pa.player,
+            start: performance.now(),
+          });
+          replayPortalAttract = null;
+        } else active = true;
+      }
+      if (replayMoversActive) {
+        if (now - replayMoversStart_time >= MOVER_DURATION) {
+          replayMoversActive = false;
+          replayMoversFrom = null;
+        } else active = true;
+      }
+      for (let i = replayExplosions.length - 1; i >= 0; i--) {
+        if (now - replayExplosions[i].start >= replayExplosions[i].duration) replayExplosions.splice(i, 1);
+      }
+      for (let i = replayWallExplosions.length - 1; i >= 0; i--) {
+        if (now - replayWallExplosions[i].start >= replayWallExplosions[i].duration) replayWallExplosions.splice(i, 1);
+      }
+      for (let i = replayPortalFades.length - 1; i >= 0; i--) {
+        if (now - replayPortalFades[i].start >= PORTAL_DISAPPEAR_DURATION) replayPortalFades.splice(i, 1);
+      }
+      for (let i = replayKeyCollectFx.length - 1; i >= 0; i--) {
+        if (now - replayKeyCollectFx[i].start >= KEY_COLLECT_DURATION) replayKeyCollectFx.splice(i, 1);
+      }
+      for (const [k, t] of replayTrapSpins.entries()) {
+        if (now - t > TRAP_SPIN_DURATION) replayTrapSpins.delete(k);
+        else active = true;
+      }
+      for (const [k, t] of replayTrapBrokenAnims.entries()) {
+        if (now - t > TRAP_BROKEN_FADE_DURATION) replayTrapBrokenAnims.delete(k);
+        else active = true;
+      }
+      for (const [k, t] of replayLockOpenAnims.entries()) {
+        if (now - t > LOCK_OPEN_DURATION) replayLockOpenAnims.delete(k);
+        else active = true;
+      }
+      if (replayMode === 'freeze') {
+        const target = replayCurrentFrozen ? 1 : 0;
+        if (Math.abs(replayFreezeProgress - target) > 0.001) {
+          replayFreezeProgress += (target - replayFreezeProgress) * 0.15;
+          active = true;
+        } else {
+          replayFreezeProgress = target;
+        }
+      }
+      if (replayWindWave) {
+        if (now - replayWindWave.start > WIND_WAVE_DURATION) replayWindWave = null;
+        else active = true;
+      }
+      if (replayWindPush) {
+        if (now - replayWindPush.start > replayWindPush.duration) {
+          if (replayWindPush.p1To) replayP1 = [...replayWindPush.p1To];
+          if (replayWindPush.p2To) replayP2 = [...replayWindPush.p2To];
+          replayWindPush = null;
+          replayWindWave = null;
+          replayDraw();
+        } else active = true;
+      }
+      if (replayExplosions.length || replayWallExplosions.length || replayPortalFades.length || replayKeyCollectFx.length) active = true;
+      replayDraw();
+      if (active) replayTick();
+      else { replayAnimRaf = null; replayDraw(); }
+    });
+  }
+  function replayGetPos(who, pos) {
+    if (replayPortalAttract && ((who === 'p1' && replayPortalAttract.player === 1) || (who === 'p2' && replayPortalAttract.player === 2))) {
+      const t = Math.min(1, (performance.now() - replayPortalAttract.start) / replayPortalAttract.duration);
+      const e = easeInQuad(t);
+      return {
+        r: replayPortalAttract.fromR + (replayPortalAttract.toR - replayPortalAttract.fromR) * e,
+        c: replayPortalAttract.fromC + (replayPortalAttract.toC - replayPortalAttract.fromC) * e,
+      };
+    }
+    if (replayHitAnim && ((who === 'p1' && replayHitAnim.player === 1) || (who === 'p2' && replayHitAnim.player === 2))) {
+      const t = Math.min(1, (performance.now() - replayHitAnim.start) / replayHitAnim.duration);
+      const kick = Math.sin(Math.PI * t) * 0.35;
+      return {
+        r: pos[0] + replayHitAnim.dirR * kick,
+        c: pos[1] + replayHitAnim.dirC * kick,
+      };
+    }
+    if (replayWindPush) {
+      const from = who === 'p1' ? replayWindPush.p1From : replayWindPush.p2From;
+      const to = who === 'p1' ? replayWindPush.p1To : replayWindPush.p2To;
+      const t = clamp01((performance.now() - replayWindPush.start) / replayWindPush.duration);
+      const e = easeInOutQuad(t);
+      return {
+        r: from[0] + (to[0] - from[0]) * e,
+        c: from[1] + (to[1] - from[1]) * e,
+      };
+    }
+    const a = replayPieceAnim[who];
+    if (!a) return { r: pos[0], c: pos[1] };
+    const t = Math.min(1, (performance.now() - a.start) / a.duration);
+    const e = easeOutQuad(t);
+    return { r: a.fromR + (a.toR - a.fromR) * e, c: a.fromC + (a.toC - a.fromC) * e };
+  }
+  function replayGetMoverPos(m) {
+    if (!replayMoversActive || !replayMoversFrom) return { r: m.r, c: m.c };
+    const from = replayMoversFrom.find(x => x.id === m.id);
+    if (!from) return { r: m.r, c: m.c };
+    const elapsed = performance.now() - replayMoversStart_time;
+    if (elapsed >= MOVER_DURATION) return { r: m.r, c: m.c };
+    const t = Math.max(0, Math.min(1, elapsed / MOVER_DURATION));
+    const e = easeInOutQuad(t);
+    return {
+      r: from.r + (m.r - from.r) * e,
+      c: from.c + (m.c - from.c) * e,
+    };
+  }
+
+  function moveNotation(mv) {
+    if (!mv) return '?';
+    if (mv.type === 'move') {
+      if (mv.from && mv.to) return chess(mv.from[0], mv.from[1]) + '→' + chess(mv.to[0], mv.to[1]);
+    }
+    if (mv.type === 'wall') {
+      const tag = (mv.orient || '?').toUpperCase();
+      const toR = mv.r + (mv.orient === 'v' ? 1 : 0);
+      const toC = mv.c + (mv.orient === 'h' ? 1 : 0);
+      return tag + ' ' + chess(mv.r, mv.c) + '→' + chess(toR, toC);
+    }
+    if (mv.type === 'teleport') return '↷ ' + chess(mv.from[0], mv.from[1]) + '→' + chess(mv.to[0], mv.to[1]);
+    if (mv.type === 'portal_place') return '🌀 ' + chess(mv.r, mv.c);
+    if (mv.type === 'portal_teleport') return '🌀 ' + chess(mv.from[0], mv.from[1]) + '→' + chess(mv.to[0], mv.to[1]);
+    if (mv.type === 'freeze') return '❄️';
+    if (mv.type === 'key_collect') return '🔑 ' + chess(mv.r, mv.c);
+    if (mv.type === 'bomb') return '💣 ' + chess(mv.r, mv.c);
+    if (mv.type === 'bubble_collect') return '🫧 ' + chess(mv.r, mv.c);
+    if (mv.type === 'bubble_spawn') return '🫧+ ' + chess(mv.r, mv.c);
+    if (mv.type === 'trap_trigger') return '⚠️ ' + chess(mv.r, mv.c);
+    if (mv.type === 'hit') return '🔨 ' + chess(mv.r, mv.c);
+    if (mv.type === 'mover') return '⚙️ ' + chess(mv.toR, mv.toC);
+    if (mv.type === 'movers') return '⚙️ ×' + (mv.moves ? mv.moves.length : 0);
+    if (mv.type === 'wind') return '💨';
+    return '?';
+  }
+
+  function replayDraw() {
+    if (!replayData) return;
+    const size = replayCanvas.width / (window.devicePixelRatio || 1);
+    replayCtx.clearRect(0, 0, size, size);
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = R_PAD + c * R_CELL, y = R_PAD + r * R_CELL;
+        replayCtx.fillStyle = (r + c) % 2 === 0 ? '#34373c' : '#2e3136';
+        replayCtx.fillRect(x, y, R_CELL, R_CELL);
+      }
+    }
+
+    if (replayMode === 'plates' && replayPlates.length) {
+      for (const [pr, pc] of replayPlates) replayDrawPlate(pr, pc);
+    }
+    if (replayMode === 'arrows' && replayArrows.length) {
+      for (const a of replayArrows) replayDrawArrow(a);
+    }
+
+    if (replayMode === 'bushes' && replayBushes.length) {
+      const pos1 = replayGetPos('p1', replayP1);
+      const pos2 = replayGetPos('p2', replayP2);
+      for (const b of replayBushes) {
+        const nearP1 = Math.abs(b.r - pos1.r) <= 1.001 && Math.abs(b.c - pos1.c) <= 1.001;
+        const nearP2 = Math.abs(b.r - pos2.r) <= 1.001 && Math.abs(b.c - pos2.c) <= 1.001;
+        const alpha = (nearP1 || nearP2) ? 0.6 : 1;
+        replayDrawBush(b.r, b.c, alpha);
+      }
+    }
+
+    if (replayMode === 'infinite_walls' && replayBubbles.length) {
+      for (const b of replayBubbles) replayDrawBubble(b);
+    }
+
+    if (replayMode === 'traps') {
+      for (const t of replayTraps) {
+        if (t.broken) continue;
+        if (!t.triggered) {
+          replayDrawTrapGhost(t);
+        }
+      }
+    }
+
+    replayCtx.strokeStyle = 'rgba(255,255,255,0.035)';
+    replayCtx.lineWidth = 1;
+    for (let i = 0; i <= N; i++) {
+      const p = R_PAD + i * R_CELL;
+      replayCtx.beginPath(); replayCtx.moveTo(R_PAD, p); replayCtx.lineTo(R_PAD + N * R_CELL, p); replayCtx.stroke();
+      replayCtx.beginPath(); replayCtx.moveTo(p, R_PAD); replayCtx.lineTo(p, R_PAD + N * R_CELL); replayCtx.stroke();
+    }
+
+    for (const k of replayWalls) {
+      const [t, r, c] = k.split(':');
+      const owner = replayWallOwnerMap.get(`${t}:${r}:${c}`) || 0;
+      const col = owner === 1 ? COLOR_P1 : (owner === 2 ? COLOR_P2 : '#79705f');
+      let alpha = 1;
+      if (replayMode === 'fragile') {
+        const hp = replayWallHp[k] || WALL_HP_MAX;
+        alpha = hp === WALL_HP_MAX ? 1 : (0.35 + 0.65 * (hp / WALL_HP_MAX));
+      }
+      replayCtx.save();
+      replayCtx.globalAlpha = alpha;
+      if (t === 'H') replayWallH(parseInt(r), parseInt(c), col);
+      else replayWallV(parseInt(r), parseInt(c), col);
+      replayCtx.restore();
+    }
+
+    if (replayMode === 'traps' && replayTraps.length) {
+      for (const t of replayTraps) {
+        const key = `${t.r}:${t.c}`;
+        if (t.broken) {
+          if (replayTrapBrokenAnims.has(key)) {
+            const el = (performance.now() - replayTrapBrokenAnims.get(key)) / TRAP_BROKEN_FADE_DURATION;
+            const a = 1 - clamp01(el);
+            if (a > 0) replayDrawTrapBroken(t, a);
+          }
+          continue;
+        }
+        if (t.triggered) replayDrawTrapWalls(t);
+      }
+    }
+
+    if (replayMode === 'movers' && replayMovers.length) {
+      for (const m of replayMovers) {
+        const pos = replayGetMoverPos(m);
+        replayDrawMover(pos.r, pos.c);
+      }
+    }
+
+    if (replayMode === 'locks') {
+      const lock2Open = replayData.lock2Open;
+      const lock1Open = replayData.lock1Open;
+      if (!lock2Open) replayDrawLockZone(LOCK2_POS[0], COLOR_P2, false);
+      if (!lock1Open) replayDrawLockZone(LOCK1_POS[0], COLOR_P1, false);
+      if (!lock2Open) replayDrawLock(LOCK2_POS[0], COLOR_P2);
+      if (!lock1Open) replayDrawLock(LOCK1_POS[0], COLOR_P1);
+      if (replayKeys) {
+        for (const k of replayKeys) {
+          if (!k.collected) replayDrawKey(k);
+        }
+      }
+      for (let i = replayKeyCollectFx.length - 1; i >= 0; i--) {
+        const fx = replayKeyCollectFx[i];
+        const t = (performance.now() - fx.start) / KEY_COLLECT_DURATION;
+        if (t >= 1) { replayKeyCollectFx.splice(i, 1); continue; }
+        replayDrawKeyCollectFx(fx, t);
+      }
+    }
+
+    if (replayMode === 'portals') {
+      for (const p of replayPortals) {
+        const isFading = replayPortalFades.some(f => f.owner === p.owner && f.r === p.r && f.c === p.c);
+        if (isFading) continue;
+        if (replayPortalAttract && replayPortalAttract.player === p.owner) continue;
+        replayDrawPortal(p.r, p.c, p.owner, 1, 1);
+      }
+      for (const f of replayPortalFades) {
+        const t = Math.min(1, (performance.now() - f.start) / PORTAL_DISAPPEAR_DURATION);
+        const fade = 1 - t;
+        const scale = 1 + t * 0.7;
+        replayDrawPortal(f.r, f.c, f.owner, fade, scale);
+      }
+    }
+
+    for (let i = replayExplosions.length - 1; i >= 0; i--) {
+      if (!replayDrawExplosion(replayExplosions[i])) replayExplosions.splice(i, 1);
+    }
+    for (let i = replayWallExplosions.length - 1; i >= 0; i--) {
+      if (!replayDrawWallExplosion(replayWallExplosions[i])) replayWallExplosions.splice(i, 1);
+    }
+
+    if (replayMode === 'wind') replayDrawWindWave();
+
+    const pos1 = replayGetPos('p1', replayP1);
+    const pos2 = replayGetPos('p2', replayP2);
+    replayDrawPiece(pos1.r, pos1.c, COLOR_P1);
+    replayDrawPiece(pos2.r, pos2.c, COLOR_P2);
+
+    if (replayMode === 'freeze' && replayFreezeProgress > 0.001) {
+      replayCtx.save();
+      replayCtx.fillStyle = `rgba(${ICE_TINT_R}, ${ICE_TINT_G}, ${ICE_TINT_B}, ${ICE_TINT_MAX_A * replayFreezeProgress})`;
+      replayCtx.fillRect(0, 0, size, size);
+      replayCtx.restore();
+    }
+  }
+
+  function replayWallH(r, c, color) {
+    const y = R_PAD + (r + 1) * R_CELL - R_WALL_THICK / 2;
+    const x = R_PAD + c * R_CELL + R_CELL * 0.08;
+    const w = R_CELL * 2 - R_CELL * 0.16;
+    replayCtx.fillStyle = color;
+    replayRoundRect(x, y, w, R_WALL_THICK, R_WALL_THICK / 2); replayCtx.fill();
+  }
+  function replayWallV(r, c, color) {
+    const x = R_PAD + (c + 1) * R_CELL - R_WALL_THICK / 2;
+    const y = R_PAD + r * R_CELL + R_CELL * 0.08;
+    const h = R_CELL * 2 - R_CELL * 0.16;
+    replayCtx.fillStyle = color;
+    replayRoundRect(x, y, R_WALL_THICK, h, R_WALL_THICK / 2); replayCtx.fill();
+  }
+  function replayDrawPiece(row, col, color) {
+    const x = R_PAD + col * R_CELL + R_CELL / 2;
+    const y = R_PAD + row * R_CELL + R_CELL / 2;
+    const rad = R_CELL * 0.32;
+    replayCtx.beginPath(); replayCtx.arc(x, y + 2, rad, 0, Math.PI * 2); replayCtx.fillStyle = 'rgba(0,0,0,0.35)'; replayCtx.fill();
+    replayCtx.beginPath(); replayCtx.arc(x, y, rad, 0, Math.PI * 2); replayCtx.fillStyle = color; replayCtx.fill();
+    replayCtx.beginPath(); replayCtx.arc(x - rad * 0.28, y - rad * 0.28, rad * 0.3, 0, Math.PI * 2); replayCtx.fillStyle = 'rgba(255,255,255,0.18)'; replayCtx.fill();
+  }
+  function replayRoundRect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    replayCtx.beginPath();
+    replayCtx.moveTo(x + r, y);
+    replayCtx.lineTo(x + w - r, y);
+    replayCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+    replayCtx.lineTo(x + w, y + h - r);
+    replayCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    replayCtx.lineTo(x + r, y + h);
+    replayCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+    replayCtx.lineTo(x, y + r);
+    replayCtx.quadraticCurveTo(x, y, x + r, y);
+    replayCtx.closePath();
+  }
+  function replayDrawPlate(r, c) {
+    const x = R_PAD + c * R_CELL, y = R_PAD + r * R_CELL;
+    const inset = R_CELL * 0.04;
+    replayCtx.fillStyle = 'rgba(0,0,0,0.35)';
+    replayRoundRect(x + inset + 2, y + inset + 3, R_CELL - inset * 2, R_CELL - inset * 2, R_CELL * 0.12);
+    replayCtx.fill();
+    const grad = replayCtx.createLinearGradient(x, y, x + R_CELL, y + R_CELL);
+    grad.addColorStop(0, '#5a5e65'); grad.addColorStop(0.5, '#4a4d52'); grad.addColorStop(1, '#3d4045');
+    replayCtx.fillStyle = grad;
+    replayRoundRect(x + inset, y + inset, R_CELL - inset * 2, R_CELL - inset * 2, R_CELL * 0.12);
+    replayCtx.fill();
+    replayCtx.strokeStyle = 'rgba(255,255,255,0.10)'; replayCtx.lineWidth = 1;
+    replayRoundRect(x + inset, y + inset, R_CELL - inset * 2, R_CELL - inset * 2, R_CELL * 0.12);
+    replayCtx.stroke();
+  }
+  function replayDrawArrow(a) {
+    const x = R_PAD + a.c * R_CELL + R_CELL / 2;
+    const y = R_PAD + a.r * R_CELL + R_CELL / 2;
+    const angle = { up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0 }[a.dir];
+    replayCtx.strokeStyle = 'rgba(170, 175, 182, 0.9)';
+    replayCtx.save();
+    replayCtx.translate(x, y); replayCtx.rotate(angle);
+    const sz = R_CELL * 0.34;
+    replayCtx.lineWidth = Math.max(1.5, R_CELL * 0.05);
+    replayCtx.lineJoin = 'round'; replayCtx.lineCap = 'round';
+    replayCtx.beginPath();
+    replayCtx.moveTo(sz, 0);
+    replayCtx.lineTo(-sz * 0.15, -sz * 0.72);
+    replayCtx.lineTo(-sz * 0.15, -sz * 0.22);
+    replayCtx.lineTo(-sz * 0.95, -sz * 0.22);
+    replayCtx.lineTo(-sz * 0.95, sz * 0.22);
+    replayCtx.lineTo(-sz * 0.15, sz * 0.22);
+    replayCtx.lineTo(-sz * 0.15, sz * 0.72);
+    replayCtx.closePath();
+    replayCtx.stroke();
+    replayCtx.restore();
+  }
+  function replayDrawBush(r, c, alpha) {
+    if (alpha === undefined) alpha = 1;
+    const x = R_PAD + c * R_CELL, y = R_PAD + r * R_CELL;
+    const pad = R_CELL * 0.04;
+    const rad = R_CELL * 0.22;
+    replayCtx.save();
+    replayCtx.globalAlpha = alpha;
+    replayRoundRect(x + pad, y + pad, R_CELL - pad * 2, R_CELL - pad * 2, rad);
+    replayCtx.fillStyle = COLOR_BUSH; replayCtx.fill();
+    replayCtx.strokeStyle = COLOR_BUSH_BORDER;
+    replayCtx.lineWidth = Math.max(1, R_CELL * 0.03);
+    replayCtx.stroke();
+    replayCtx.restore();
+  }
+  function replayDrawBubble(b) {
+    const cx = R_PAD + b.c * R_CELL + R_CELL / 2;
+    const cy = R_PAD + b.r * R_CELL + R_CELL / 2;
+    const rad = R_CELL * 0.34;
+    replayCtx.beginPath(); replayCtx.arc(cx, cy, rad, 0, Math.PI * 2);
+    replayCtx.fillStyle = 'rgba(180, 200, 215, 0.35)'; replayCtx.fill();
+    replayCtx.strokeStyle = 'rgba(220, 235, 245, 0.55)'; replayCtx.lineWidth = 1.5; replayCtx.stroke();
+  }
+
+  function replayDrawTrapGhost(trap) {
+    const cx = R_PAD + trap.c * R_CELL + R_CELL / 2;
+    const cy = R_PAD + trap.r * R_CELL + R_CELL / 2;
+    replayCtx.save();
+    replayCtx.globalAlpha = TRAP_GHOST_ALPHA;
+    const halfLen = R_CELL * 0.75 / 2;
+    const thick = R_WALL_THICK;
+    replayCtx.fillStyle = COLOR_TRAP;
+    replayRoundRect(cx - halfLen, cy - thick / 2, halfLen * 2, thick, thick / 2); replayCtx.fill();
+    replayRoundRect(cx - thick / 2, cy - halfLen, thick, halfLen * 2, thick / 2); replayCtx.fill();
+    replayCtx.restore();
+  }
+
+  function replayDrawTrapBroken(trap, alpha) {
+    const cx = R_PAD + trap.c * R_CELL + R_CELL / 2;
+    const cy = R_PAD + trap.r * R_CELL + R_CELL / 2;
+    replayCtx.save();
+    replayCtx.globalAlpha = alpha;
+    const halfLen = R_CELL * 0.75 / 2;
+    const thick = R_WALL_THICK;
+    replayCtx.fillStyle = COLOR_TRAP;
+    replayRoundRect(cx - halfLen, cy - thick / 2, halfLen * 2, thick, thick / 2); replayCtx.fill();
+    replayRoundRect(cx - thick / 2, cy - halfLen, thick, halfLen * 2, thick / 2); replayCtx.fill();
+    replayCtx.restore();
+  }
+
+  function replayDrawTrapWalls(trap) {
+    const key = `${trap.r}:${trap.c}`;
+    let spinProgress = 1;
+    let spinAngle = 0;
+    if (replayTrapSpins.has(key)) {
+      const t = Math.min(1, (performance.now() - replayTrapSpins.get(key)) / TRAP_SPIN_DURATION);
+      spinProgress = easeOutCubic(t);
+      spinAngle = (1 - spinProgress) * Math.PI * 4;
+    }
+    const alpha = trap.hits === 0 ? 1.0 : 0.5;
+    const cx = R_PAD + trap.c * R_CELL + R_CELL / 2;
+    const cy = R_PAD + trap.r * R_CELL + R_CELL / 2;
+    replayCtx.save();
+    replayCtx.globalAlpha = alpha;
+    replayCtx.translate(cx, cy);
+    replayCtx.rotate(spinAngle);
+    const scale = spinProgress;
+    const halfLen = R_CELL * 0.75 / 2;
+    const thick = R_WALL_THICK;
+    const drawLocal = (lx, ly, type) => {
+      replayCtx.save();
+      replayCtx.scale(scale, scale);
+      replayCtx.fillStyle = COLOR_TRAP;
+      if (type === 'h') {
+        const cxx = lx + R_CELL / 2, cyy = ly;
+        replayRoundRect(cxx - halfLen, cyy - thick / 2, halfLen * 2, thick, thick / 2);
+        replayCtx.fill();
+      } else {
+        const cxx = lx, cyy = ly + R_CELL / 2;
+        replayRoundRect(cxx - thick / 2, cyy - halfLen, thick, halfLen * 2, thick / 2);
+        replayCtx.fill();
+      }
+      replayCtx.restore();
+    };
+    if (trap.r > 0) drawLocal(-R_CELL / 2, -R_CELL / 2, 'h');
+    if (trap.r < N - 1) drawLocal(-R_CELL / 2, R_CELL / 2, 'h');
+    if (trap.c > 0) drawLocal(-R_CELL / 2, -R_CELL / 2, 'v');
+    if (trap.c < N - 1) drawLocal(R_CELL / 2, -R_CELL / 2, 'v');
+    replayCtx.restore();
+  }
+
+  function replayDrawMover(row, col) {
+    const y = R_PAD + (row + 1) * R_CELL - R_WALL_THICK / 2;
+    const x = R_PAD + col * R_CELL + R_CELL * 0.08;
+    const w = R_CELL * 2 - R_CELL * 0.16;
+    replayCtx.fillStyle = '#8a94a0';
+    replayRoundRect(x, y, w, R_WALL_THICK, R_WALL_THICK / 2); replayCtx.fill();
+  }
+  function replayDrawLockZone(row, color, isOpen) {
+    const x0 = R_PAD;
+    const yy = R_PAD + row * R_CELL;
+    const w = N * R_CELL;
+    const h = R_CELL;
+    const alpha = isOpen ? 0.10 : 0.30;
+    replayCtx.save();
+    replayCtx.beginPath();
+    replayCtx.rect(x0, yy, w, h);
+    replayCtx.clip();
+    replayCtx.fillStyle = hexToRgba(color, alpha * 0.12);
+    replayCtx.fillRect(x0, yy, w, h);
+    replayCtx.strokeStyle = hexToRgba(color, alpha * 0.75);
+    replayCtx.lineWidth = Math.max(1.5, R_CELL * 0.04);
+    const step = R_CELL * 0.32;
+    for (let dx = -h; dx < w + h; dx += step) {
+      replayCtx.beginPath();
+      replayCtx.moveTo(x0 + dx, yy + h);
+      replayCtx.lineTo(x0 + dx + h, yy);
+      replayCtx.stroke();
+    }
+    replayCtx.restore();
+  }
+  function replayDrawLock(row, color) {
+    const cx = R_PAD + 4 * R_CELL + R_CELL / 2;
+    const cy = R_PAD + row * R_CELL + R_CELL / 2;
+    const size = R_CELL * 0.55;
+    const arcW = size * 0.55;
+    replayCtx.beginPath();
+    replayCtx.arc(cx, cy - size * 0.1, arcW * 0.5, Math.PI, 0, false);
+    replayCtx.strokeStyle = color;
+    replayCtx.lineWidth = Math.max(2, size * 0.16);
+    replayCtx.lineCap = 'round';
+    replayCtx.stroke();
+    const bodyW = size * 0.9;
+    const bodyH = size * 0.7;
+    const bodyX = cx - bodyW / 2;
+    const bodyY = cy - size * 0.1;
+    replayCtx.fillStyle = color;
+    replayRoundRect(bodyX, bodyY, bodyW, bodyH, size * 0.12);
+    replayCtx.fill();
+    replayCtx.beginPath();
+    replayCtx.arc(cx, bodyY + bodyH * 0.35, size * 0.10, 0, Math.PI * 2);
+    replayCtx.fillStyle = '#1e1f22';
+    replayCtx.fill();
+  }
+  function replayDrawKey(k) {
+    const x = R_PAD + k.c * R_CELL + R_CELL / 2;
+    const y = R_PAD + k.r * R_CELL + R_CELL / 2;
+    const color = k.owner === 1 ? COLOR_P1 : COLOR_P2;
+    replayCtx.save();
+    replayCtx.translate(x, y);
+    const rad = R_CELL * 0.18;
+    replayCtx.beginPath();
+    replayCtx.arc(0, -rad * 0.7, rad * 0.7, 0, Math.PI * 2);
+    replayCtx.strokeStyle = color; replayCtx.lineWidth = R_CELL * 0.09; replayCtx.stroke();
+    replayCtx.beginPath();
+    replayCtx.arc(0, -rad * 0.7, rad * 0.32, 0, Math.PI * 2);
+    replayCtx.fillStyle = '#1e1f22'; replayCtx.fill();
+    replayCtx.beginPath();
+    replayCtx.moveTo(0, -rad * 0.05); replayCtx.lineTo(0, rad * 1.4);
+    replayCtx.strokeStyle = color; replayCtx.lineWidth = R_CELL * 0.09;
+    replayCtx.lineCap = 'round'; replayCtx.stroke();
+    replayCtx.beginPath();
+    replayCtx.moveTo(0, rad * 0.7); replayCtx.lineTo(rad * 0.5, rad * 0.7);
+    replayCtx.moveTo(0, rad * 1.05); replayCtx.lineTo(rad * 0.5, rad * 1.05);
+    replayCtx.stroke();
+    replayCtx.restore();
+  }
+  function replayDrawKeyCollectFx(fx, t) {
+    const x = R_PAD + fx.c * R_CELL + R_CELL / 2;
+    const y = R_PAD + fx.r * R_CELL + R_CELL / 2;
+    const color = fx.owner === 1 ? COLOR_P1 : COLOR_P2;
+    const e = easeOutCubic(t);
+    replayCtx.beginPath();
+    replayCtx.arc(x, y, R_CELL * 0.2 + e * R_CELL * 0.5, 0, Math.PI * 2);
+    replayCtx.strokeStyle = hexToRgba(color, 1 - t);
+    replayCtx.lineWidth = Math.max(2, R_CELL * 0.08 * (1 - t));
+    replayCtx.stroke();
+    replayCtx.beginPath();
+    replayCtx.arc(x, y, R_CELL * 0.25 * (1 - t), 0, Math.PI * 2);
+    replayCtx.fillStyle = hexToRgba(color, (1 - t) * 0.5);
+    replayCtx.fill();
+  }
+  function replayDrawPortal(pr, pc, owner, alphaMul, scale) {
+    const x = R_PAD + pc * R_CELL + R_CELL / 2;
+    const y = R_PAD + pr * R_CELL + R_CELL / 2;
+    const rad = R_CELL * 0.36 * (scale || 1);
+    const color = owner === 1 ? COLOR_P1 : COLOR_P2;
+    const alpha = (alphaMul === undefined ? 1 : alphaMul);
+    replayCtx.save();
+    replayCtx.globalAlpha = alpha;
+    replayCtx.beginPath();
+    replayCtx.arc(x, y, rad * 1.15, 0, Math.PI * 2);
+    const grad = replayCtx.createRadialGradient(x, y, rad * 0.4, x, y, rad * 1.15);
+    grad.addColorStop(0, hexToRgba(color, 0.55));
+    grad.addColorStop(1, hexToRgba(color, 0));
+    replayCtx.fillStyle = grad;
+    replayCtx.fill();
+    replayCtx.beginPath();
+    replayCtx.arc(x, y, rad, 0, Math.PI * 2);
+    replayCtx.strokeStyle = hexToRgba(color, 0.9);
+    replayCtx.lineWidth = Math.max(2, R_CELL * 0.055);
+    replayCtx.stroke();
+    replayCtx.beginPath();
+    replayCtx.setLineDash([R_CELL * 0.10, R_CELL * 0.08]);
+    replayCtx.arc(x, y, rad * 0.72, 0, Math.PI * 2);
+    replayCtx.strokeStyle = hexToRgba(color, 0.7);
+    replayCtx.lineWidth = Math.max(1.5, R_CELL * 0.035);
+    replayCtx.stroke();
+    replayCtx.setLineDash([]);
+    replayCtx.beginPath();
+    replayCtx.arc(x, y, rad * 0.14, 0, Math.PI * 2);
+    replayCtx.fillStyle = hexToRgba(color, 0.95);
+    replayCtx.fill();
+    replayCtx.restore();
+  }
+  function replayDrawExplosion(ex) {
+    const now = performance.now();
+    const t = (now - ex.start) / ex.duration;
+    if (t >= 1) return false;
+    const cx = ex.cx, cy = ex.cy;
+    const ease = 1 - Math.pow(1 - t, 5);
+    replayCtx.save();
+    replayCtx.globalCompositeOperation = 'lighter';
+    if (t < 0.35) {
+      const coreT = t / 0.35;
+      const coreRad = ex.maxRadius * 0.35 * (1 - coreT);
+      if (coreRad > 0.5) {
+        const g = replayCtx.createRadialGradient(cx, cy, 0, cx, cy, coreRad);
+        g.addColorStop(0, `rgba(255, 255, 255, ${0.95 * (1 - coreT)})`);
+        g.addColorStop(1, `rgba(200, 220, 255, 0)`);
+        replayCtx.beginPath(); replayCtx.arc(cx, cy, coreRad, 0, Math.PI * 2);
+        replayCtx.fillStyle = g; replayCtx.fill();
+      }
+    }
+    const rad = ease * ex.maxRadius;
+    const alpha = Math.pow(1 - t, 1.8);
+    replayCtx.beginPath(); replayCtx.arc(cx, cy, rad, 0, Math.PI * 2);
+    if (ex.custom && ex.player) {
+      const color = ex.player === 1 ? COLOR_P1 : COLOR_P2;
+      replayCtx.strokeStyle = hexToRgba(color, alpha * 0.9);
+    } else {
+      replayCtx.strokeStyle = `rgba(220, 240, 255, ${alpha})`;
+    }
+    replayCtx.lineWidth = 1.5 + 3 * Math.max(0, 1 - t * 3);
+    replayCtx.stroke();
+    const rad2 = ease * ex.maxRadius * 0.72;
+    if (rad2 > 0.5) {
+      replayCtx.beginPath(); replayCtx.arc(cx, cy, rad2, 0, Math.PI * 2);
+      replayCtx.strokeStyle = `rgba(160, 200, 255, ${alpha * 0.45})`;
+      replayCtx.lineWidth = 1; replayCtx.stroke();
+    }
+    replayCtx.restore();
+    return true;
+  }
+  function replayDrawWallExplosion(we) {
+    const now = performance.now();
+    const t = (now - we.start) / we.duration;
+    if (t >= 1) return false;
+    const alpha = 1 - t;
+    replayCtx.save();
+    replayCtx.fillStyle = `rgba(255, 200, 100, ${alpha})`;
+    if (we.type === 'H') {
+      const y = R_PAD + (we.r + 1) * R_CELL - R_WALL_THICK / 2;
+      const x = R_PAD + we.c * R_CELL;
+      replayRoundRect(x, y, R_CELL * 2 - R_CELL * 0.16, R_WALL_THICK, R_WALL_THICK / 2);
+      replayCtx.fill();
+    } else {
+      const x = R_PAD + (we.c + 1) * R_CELL - R_WALL_THICK / 2;
+      const y = R_PAD + we.r * R_CELL;
+      replayRoundRect(x, y, R_WALL_THICK, R_CELL * 2 - R_CELL * 0.16, R_WALL_THICK / 2);
+      replayCtx.fill();
+    }
+    replayCtx.restore();
+    return true;
+  }
+  function replayDrawWindWave() {
+    if (!replayWindWave) return;
+    const t = clamp01((performance.now() - replayWindWave.start) / WIND_WAVE_DURATION);
+    if (t >= 1) return;
+    const dirR = replayWindWave.dirR, dirC = replayWindWave.dirC;
+    const boardX = R_PAD, boardY = R_PAD, boardSize = N * R_CELL;
+    const thickness = R_CELL * 0.9;
+    let waveX, waveY;
+
+    if (dirC !== 0) {
+      const startX = dirC > 0 ? boardX - thickness : boardX + boardSize + thickness;
+      const endX = dirC > 0 ? boardX + boardSize + thickness : boardX - thickness;
+      waveX = startX + (endX - startX) * t;
+      waveY = boardY + boardSize / 2;
+    } else {
+      const startY = dirR > 0 ? boardY - thickness : boardY + boardSize + thickness;
+      const endY = dirR > 0 ? boardY + boardSize + thickness : boardY - thickness;
+      waveY = startY + (endY - startY) * t;
+      waveX = boardX + boardSize / 2;
+    }
+
+    const fade = Math.sin(Math.PI * t) * 0.55;
+    replayCtx.save();
+    if (dirC !== 0) {
+      const grad = replayCtx.createLinearGradient(waveX - thickness, 0, waveX + thickness, 0);
+      grad.addColorStop(0, `rgba(168, 200, 232, 0)`);
+      grad.addColorStop(0.5, `rgba(168, 200, 232, ${fade})`);
+      grad.addColorStop(1, `rgba(168, 200, 232, 0)`);
+      replayCtx.fillStyle = grad;
+      replayCtx.fillRect(waveX - thickness, boardY, thickness * 2, boardSize);
+    } else {
+      const grad = replayCtx.createLinearGradient(0, waveY - thickness, 0, waveY + thickness);
+      grad.addColorStop(0, `rgba(168, 200, 232, 0)`);
+      grad.addColorStop(0.5, `rgba(168, 200, 232, ${fade})`);
+      grad.addColorStop(1, `rgba(168, 200, 232, 0)`);
+      replayCtx.fillStyle = grad;
+      replayCtx.fillRect(boardX, waveY - thickness, boardSize, thickness * 2);
+    }
+    replayCtx.restore();
+  }
+
+  function groupHistoryIntoReplayChips(history) {
+    const chips = [];
+    if (!history) return chips;
+    const MAIN = new Set([
+      'move', 'wall', 'bomb', 'portal', 'portal_place', 'portal_teleport', 'freeze',
+      'trap_trigger', 'movers', 'mover', 'wind', 'key_collect',
+    ]);
+    const STICKY = new Set(['hit', 'teleport', 'bubble_collect', 'bubble_spawn']);
+    for (const mv of history) {
+      if (!mv) continue;
+      if (MAIN.has(mv.type)) {
+        chips.push({ player: mv.player || 0, events: [mv] });
+      } else if (STICKY.has(mv.type)) {
+        if (chips.length === 0) {
+          chips.push({ player: mv.player || 1, events: [mv] });
+        } else {
+          chips[chips.length - 1].events.push(mv);
+        }
+      } else {
+        chips.push({ player: mv.player || 0, events: [mv] });
+      }
+    }
+    return chips;
+  }
+
+  function moveNotationChip(chip) {
+    const parts = [];
+    for (const mv of chip.events) parts.push(moveNotation(mv));
+    return parts.join(' ');
+  }
+
+  function buildReplayMovesList() {
+    movesListEl.innerHTML = '';
+    replayChips = groupHistoryIntoReplayChips(replayData.history || []);
+    replayChips.forEach((chip, i) => {
+      const chipEl = document.createElement('div');
+      chipEl.className = 'move-chip';
+      chipEl.dataset.index = i;
+      const dot = document.createElement('span');
+      dot.className = 'move-dot';
+      dot.style.background = chip.player === 1 ? COLOR_P1 : (chip.player === 2 ? COLOR_P2 : '#6b90b8');
+      chipEl.appendChild(dot);
+      const text = document.createElement('span');
+      text.textContent = (i + 1) + '. ' + moveNotationChip(chip);
+      chipEl.appendChild(text);
+      movesListEl.appendChild(chipEl);
+    });
+    updateReplayMovesHighlight();
+  }
+  function updateReplayMovesHighlight() {
+    const chips = movesListEl.children;
+    for (let i = 0; i < chips.length; i++) {
+      chips[i].classList.remove('current', 'future');
+      if (i === replayStep - 1) chips[i].classList.add('current');
+      else if (i >= replayStep) chips[i].classList.add('future');
+    }
+    const active = chips[replayStep - 1];
+    if (active) {
+      const listRect = movesListEl.getBoundingClientRect();
+      const chipRect = active.getBoundingClientRect();
+      const delta = (chipRect.left + chipRect.width / 2) - (listRect.left + listRect.width / 2);
+      movesListEl.scrollLeft += delta;
+    }
+  }
+
+  function rebuildReplayWallOwners() {
+    const map = new Map();
+    const history = (replayData && replayData.history) || [];
+    for (const mv of history) {
+      if (mv && mv.type === 'wall') {
+        const key = `${(mv.orient || 'h').toUpperCase()}:${mv.r}:${mv.c}`;
+        if (!map.has(key)) map.set(key, mv.player);
+      }
+    }
+    return map;
+  }
+
+  function replayMoversAtStep(chipIndex) {
+    const base = (replayData.moversStart || replayData.movers || []).map(m => ({ id: m.id, type: m.type, r: m.r, c: m.c, dir: m.dir }));
+    for (let ci = 0; ci < chipIndex; ci++) {
+      const chip = replayChips[ci];
+      if (!chip) continue;
+      for (const mv of chip.events) {
+        if (mv.type === 'movers' && mv.moves) {
+          for (const s of mv.moves) {
+            const m = base.find(x => x.id === s.id);
+            if (m) { m.r = s.toR; m.c = s.toC; }
+          }
+        } else if (mv.type === 'mover') {
+          const m = base.find(x => x.id === mv.id);
+          if (m) { m.r = mv.toR; m.c = mv.toC; }
+        }
+      }
+    }
+    return base;
+  }
+
+  function resetReplayKeys() {
+    replayKeys = replayInitialKeys.map(k => ({...k}));
+  }
+  function resetReplayTraps() {
+    replayTraps = replayInitialTraps.map(t => ({...t}));
+  }
+
+  function replayApplyStep(chipIndex, animate) {
+  const oldP1 = [...replayP1], oldP2 = [...replayP2];
+  const oldMovers = replayMovers.map(m => ({ id: m.id, r: m.r, c: m.c }));
+
+  // Состояние "до chipIndex": применяем чипы 0..chipIndex-1.
+  // Затем, если animate=true, поверх этого проигрываем чип chipIndex-1.
+  replayP1 = [...replayData.startP1];
+  replayP2 = [...replayData.startP2];
+  replayWalls = [];
+  replayBubbles = [...(replayData.bubbles || [])];
+  replayWallHp = {...(replayData.wallHp || {})};
+  replayPortals = (replayData.portals || []).map(p => ({...p}));
+  resetReplayKeys();
+  resetReplayTraps();
+  replayData.lock1Open = false;
+  replayData.lock2Open = false;
+  replayCurrentFrozen = 0;
+  replayCurrentFrozenMovesLeft = 0;
+  replayTrapSpins.clear();
+  replayTrapBrokenAnims.clear();
+  replayPortalFades = [];
+  replayWindWave = null;
+  replayWindPush = null;
+  replayKeyCollectFx = [];
+  replayLockOpenAnims.clear();
+  replayPortalAttract = null;
+
+  const totalChips = replayChips.length;
+  if (chipIndex > totalChips) chipIndex = totalChips;
+
+  // Применяем чипы СТРОГО до целевого (для состояния "до хода")
+  const applyCount = animate ? Math.max(0, chipIndex - 1) : chipIndex;
+  for (let ci = 0; ci < applyCount; ci++) {
+    const chip = replayChips[ci];
+    if (!chip) continue;
+    for (const mv of chip.events) {
+      applyReplayEventState(mv);
+    }
+  }
+  replayMovers = replayMoversAtStep(applyCount);
+
+  // Сброс предыдущей очереди перед новой
+  replayEventQueue = [];
+  replayEventPlaying = false;
+  replayChipCtx = null;
+
+  if (animate && chipIndex > 0) {
+    const chip = replayChips[chipIndex - 1];
+    if (chip && chip.events.length) {
+      // Запоминаем стартовое состояние, от которого играем чип.
+      // replayP1/replayP2 сейчас в позиции "до хода" — от них и стартуем.
+      replayChipCtx = {
+        oldP1: [...replayP1],
+        oldP2: [...replayP2],
+        oldMovers: replayMovers.map(m => ({...m})),
+        stepIndex: chipIndex,
+      };
+      // Сразу устанавливаем визуальные позиции в стартовую точку
+      // (чтобы анимация началась оттуда, а не от прошлой анимации).
+      replayPieceAnim.p1 = null;
+      replayPieceAnim.p2 = null;
+      replayHitAnim = null;
+      replayPortalAttract = null;
+      replayWindPush = null;
+      replayWindWave = null;
+      replayMoversActive = false;
+      replayMoversFrom = null;
+      replayEventQueue = chip.events.slice();
+      replayEventPlaying = false;
+      replayPlayNextEvent();
+    }
+  } else {
+    replayMoversActive = false;
+    replayMoversFrom = null;
+    replayHitAnim = null;
+    replayPortalAttract = null;
+    replayWindPush = null;
+    replayWindWave = null;
+    replayFreezeProgress = replayCurrentFrozen ? 1 : 0;
+  }
+}
+
+  function applyReplayEventState(mv) {
+    if (mv.type === 'move') {
+      const to = mv.to || null;
+      if (to) {
+        if (mv.player === 1) replayP1 = [...to];
+        else replayP2 = [...to];
+      }
+    } else if (mv.type === 'teleport') {
+      if (mv.player === 1) replayP1 = [...mv.to];
+      else replayP2 = [...mv.to];
+    } else if (mv.type === 'portal_place') {
+      replayPortals = replayPortals.filter(p => p.owner !== mv.player);
+      replayPortals.push({ owner: mv.player, r: mv.r, c: mv.c });
+    } else if (mv.type === 'portal_teleport') {
+      if (mv.player === 1) replayP1 = [...mv.to];
+      else replayP2 = [...mv.to];
+      replayPortals = replayPortals.filter(p => p.owner !== mv.player);
+    } else if (mv.type === 'key_collect') {
+      const k = replayKeys.find(x => x.r === mv.r && x.c === mv.c && x.owner === mv.owner && !x.collected);
+      if (k) k.collected = true;
+      if (mv.owner === 2) replayData.lock2Open = true;
+      else replayData.lock1Open = true;
+    } else if (mv.type === 'wall') {
+      const wk = (mv.orient || 'h').toUpperCase() + ':' + mv.r + ':' + mv.c;
+      if (!replayWalls.includes(wk)) replayWalls.push(wk);
+    } else if (mv.type === 'bubble_collect') {
+      replayBubbles = replayBubbles.filter(b => !(b.r === mv.r && b.c === mv.c));
+    } else if (mv.type === 'bubble_spawn') {
+      replayBubbles.push({ r: mv.r, c: mv.c });
+    } else if (mv.type === 'trap_trigger') {
+      const t = replayTraps.find(x => x.r === mv.r && x.c === mv.c);
+      if (t) { t.triggered = true; t.hits = 0; }
+    } else if (mv.type === 'hit') {
+      const t = replayTraps.find(x => x.r === mv.r && x.c === mv.c && x.triggered);
+      if (t) {
+        t.hits = (t.hits || 0) + 1;
+        if (t.hits >= TRAP_HP_MAX) { t.broken = true; t.triggered = false; }
+      }
+      if (mv.wall) {
+        const newHp = (mv.hp !== undefined) ? mv.hp : (WALL_HP_MAX - 1);
+        if (newHp <= 0) {
+          const idx = replayWalls.indexOf(mv.wall);
+          if (idx !== -1) replayWalls.splice(idx, 1);
+          delete replayWallHp[mv.wall];
+        } else {
+          replayWallHp[mv.wall] = newHp;
+        }
+      }
+    } else if (mv.type === 'bomb') {
+      if (mv.destroyed) {
+        for (const dk of mv.destroyed) {
+          const [t, r, c] = dk.split(':');
+          const wk = `${t}:${r}:${c}`;
+          const idx = replayWalls.indexOf(wk);
+          if (idx !== -1) replayWalls.splice(idx, 1);
+        }
+      }
+    } else if (mv.type === 'wind') {
+      if (mv.p1To) replayP1 = [...mv.p1To];
+      if (mv.p2To) replayP2 = [...mv.p2To];
+    } else if (mv.type === 'freeze') {
+      replayCurrentFrozen = mv.player;
+      replayCurrentFrozenMovesLeft = FREEZE_EXTRA_MOVES;
+    } else if (mv.type === 'movers' || mv.type === 'mover') {
+      if (mv.type === 'movers' && mv.moves) {
+        for (const s of mv.moves) {
+          const m = replayMovers.find(x => x.id === s.id);
+          if (m) { m.r = s.toR; m.c = s.toC; }
+        }
+      } else if (mv.type === 'mover') {
+        const m = replayMovers.find(x => x.id === mv.id);
+        if (m) { m.r = mv.toR; m.c = mv.toC; }
+      }
+    }
+
+    if (replayCurrentFrozen && mv.player === replayCurrentFrozen && mv.type !== 'freeze') {
+      if (replayCurrentFrozenMovesLeft > 0) {
+        replayCurrentFrozenMovesLeft -= 1;
+        if (replayCurrentFrozenMovesLeft <= 0) {
+          replayCurrentFrozen = 0;
+          replayCurrentFrozenMovesLeft = 0;
+        }
+      }
+    }
+  }
+
+  function replayPlayNextEvent() {
+  if (!replayEventQueue.length) {
+    replayEventPlaying = false;
+    replayChipCtx = null;
+    // Ждём завершения всех активных анимаций
+    if (replayPieceAnim.p1 || replayPieceAnim.p2 || replayHitAnim ||
+        replayPortalAttract || replayWindPush || replayMoversActive ||
+        replayExplosions.length || replayWallExplosions.length) {
+      setTimeout(replayPlayNextEvent, 20);
+      return;
+    }
+    replayDraw();
+    return;
+  }
+
+  replayEventPlaying = true;
+  const mv = replayEventQueue.shift();
+
+  const advance = (delay) => {
+    setTimeout(() => {
+      if (!replayAnimRaf) replayTick();
+      replayPlayNextEvent();
+    }, delay);
+  };
+
+  if (mv.type === 'move') {
+    const who = mv.player === 1 ? 'p1' : 'p2';
+    // Стартовая позиция: текущая визуальная позиция фишки.
+    const startPos = who === 'p1' ? [...replayP1] : [...replayP2];
+    const to = mv.to;
+    replayStartAnim(who, startPos[0], startPos[1], to[0], to[1]);
+    // Обновляем "логическую" позицию ПОСЛЕ завершения анимации
+    advance(MOVE_DURATION);
+    setTimeout(() => {
+      if (who === 'p1') replayP1 = [...to];
+      else replayP2 = [...to];
+    }, MOVE_DURATION);
+    return;
+  }
+
+  if (mv.type === 'teleport') {
+    const who = mv.player === 1 ? 'p1' : 'p2';
+    const startPos = who === 'p1' ? [...replayP1] : [...replayP2];
+    // Если по какой-то причине from отличается — доверяем mv.from.
+    const from = mv.from || startPos;
+    replayStartAnim(who, from[0], from[1], mv.to[0], mv.to[1]);
+    advance(TELEPORT_DURATION);
+    setTimeout(() => {
+      if (who === 'p1') replayP1 = [...mv.to];
+      else replayP2 = [...mv.to];
+    }, TELEPORT_DURATION);
+    return;
+  }
+
+  if (mv.type === 'portal_teleport') {
+    const who = mv.player === 1 ? 'p1' : 'p2';
+    const from = who === 'p1' ? [...replayP1] : [...replayP2];
+    replayStartPortalAttract(mv.player, from[0], from[1], mv.to[0], mv.to[1]);
+    // После attract — эффект исчезновения портала и финал
+    advance(PORTAL_ATTRACT_DURATION + PORTAL_DISAPPEAR_DURATION);
+    setTimeout(() => {
+      if (mv.player === 1) replayP1 = [...mv.to];
+      else replayP2 = [...mv.to];
+      // Убираем портал
+      replayPortals = replayPortals.filter(p => p.owner !== mv.player);
+    }, PORTAL_ATTRACT_DURATION);
+    return;
+  }
+
+  if (mv.type === 'trap_trigger') {
+    replayTrapSpins.set(`${mv.r}:${mv.c}`, performance.now());
+    // Логически — просто отмечаем
+    const t = replayTraps.find(x => x.r === mv.r && x.c === mv.c);
+    if (t) { t.triggered = true; t.hits = 0; }
+    if (!replayAnimRaf) replayTick();
+    advance(TRAP_SPIN_DURATION);
+    return;
+  }
+
+  if (mv.type === 'hit') {
+    replayStartHitAnim(mv.player, mv.dirR, mv.dirC);
+    const t = replayTraps.find(x => x.r === mv.r && x.c === mv.c && x.triggered);
+    if (t) {
+      t.hits = (t.hits || 0) + 1;
+      if (t.hits >= TRAP_HP_MAX) {
+        t.broken = true;
+        t.triggered = false;
+        replayTrapBrokenAnims.set(`${mv.r}:${mv.c}`, performance.now());
+      }
+    }
+    if (mv.wall) {
+      const newHp = (mv.hp !== undefined) ? mv.hp : (WALL_HP_MAX - 1);
+      if (newHp <= 0) {
+        const idx = replayWalls.indexOf(mv.wall);
+        if (idx !== -1) replayWalls.splice(idx, 1);
+        delete replayWallHp[mv.wall];
+      } else {
+        replayWallHp[mv.wall] = newHp;
+      }
+    }
+    advance(HIT_KICK_DURATION);
+    return;
+  }
+
+  if (mv.type === 'bomb') {
+    const cx = R_PAD + mv.c * R_CELL + R_CELL / 2;
+    const cy = R_PAD + mv.r * R_CELL + R_CELL / 2;
+    replayExplosions.push({ cx, cy, start: performance.now(), duration: BOMB_EXPLOSION_DURATION, maxRadius: R_CELL * 1.05 });
+    if (mv.destroyed) {
+      // Убираем разрушенные стены из логического состояния
+      for (const dk of mv.destroyed) {
+        const [t, r, c] = dk.split(':');
+        const wk = `${t}:${r}:${c}`;
+        const idx = replayWalls.indexOf(wk);
+        if (idx !== -1) replayWalls.splice(idx, 1);
+        replayWallExplosions.push({ type: t, r: parseInt(r), c: parseInt(c), start: performance.now(), duration: 380 });
+      }
+    }
+    if (!replayAnimRaf) replayTick();
+    advance(BOMB_EXPLOSION_DURATION);
+    return;
+  }
+
+  if (mv.type === 'wind') {
+    replayWindWave = { dirR: mv.dirR, dirC: mv.dirC, start: performance.now() };
+    replayWindPush = {
+      p1From: [...mv.p1From], p1To: [...mv.p1To],
+      p2From: [...mv.p2From], p2To: [...mv.p2To],
+      start: performance.now() + WIND_PUSH_DELAY,
+      duration: WIND_PUSH_DURATION,
+    };
+    // Снапим на стартовые позиции
+    replayP1 = [...mv.p1From];
+    replayP2 = [...mv.p2From];
+    // Через delay+push обновим до финальных
+    setTimeout(() => {
+      replayP1 = [...mv.p1To];
+      replayP2 = [...mv.p2To];
+      replayWindWave = null;
+      replayWindPush = null;
+    }, WIND_PUSH_DELAY + WIND_PUSH_DURATION);
+    if (!replayAnimRaf) replayTick();
+    advance(WIND_PUSH_DELAY + WIND_PUSH_DURATION + EVENT_GAP);
+    return;
+  }
+
+  if (mv.type === 'key_collect') {
+    replayKeyCollectFx.push({
+      r: mv.r, c: mv.c, owner: mv.owner,
+      start: performance.now(),
+      duration: KEY_COLLECT_DURATION,
+    });
+    // Логически отмечаем ключ как собранный
+    const k = replayKeys.find(x => x.r === mv.r && x.c === mv.c && x.owner === mv.owner && !x.collected);
+    if (k) k.collected = true;
+    if (mv.owner === 2) {
+      replayData.lock2Open = true;
+      replayLockOpenAnims.set(1, performance.now());
+    } else {
+      replayData.lock1Open = true;
+      replayLockOpenAnims.set(2, performance.now());
+    }
+    if (!replayAnimRaf) replayTick();
+    advance(KEY_COLLECT_DURATION - 200);
+    return;
+  }
+
+  if (mv.type === 'freeze') {
+    replayCurrentFrozen = mv.player;
+    replayCurrentFrozenMovesLeft = FREEZE_EXTRA_MOVES;
+    replayFreezeProgress = Math.max(replayFreezeProgress, 0.01);
+    if (!replayAnimRaf) replayTick();
+    advance(180);
+    return;
+  }
+
+  if (mv.type === 'movers' || mv.type === 'mover') {
+    // Обновляем муверов в логическом состоянии
+    if (mv.type === 'movers' && mv.moves) {
+      for (const s of mv.moves) {
+        const m = replayMovers.find(x => x.id === s.id);
+        if (m) { m.r = s.toR; m.c = s.toC; }
+      }
+    } else if (mv.type === 'mover') {
+      const m = replayMovers.find(x => x.id === mv.id);
+      if (m) { m.r = mv.toR; m.c = mv.toC; }
+    }
+    if (replayChipCtx && replayChipCtx.oldMovers.length) {
+      replayMoversFrom = replayChipCtx.oldMovers;
+      replayMoversStart_time = performance.now();
+      replayMoversActive = true;
+    }
+    if (!replayAnimRaf) replayTick();
+    advance(MOVER_DURATION + EVENT_GAP);
+    return;
+  }
+
+  if (mv.type === 'wall') {
+    const wk = (mv.orient || 'h').toUpperCase() + ':' + mv.r + ':' + mv.c;
+    if (!replayWalls.includes(wk)) replayWalls.push(wk);
+    advance(80);
+    return;
+  }
+
+  if (mv.type === 'bubble_collect') {
+    replayBubbles = replayBubbles.filter(b => !(b.r === mv.r && b.c === mv.c));
+    advance(80);
+    return;
+  }
+  if (mv.type === 'bubble_spawn') {
+    replayBubbles.push({ r: mv.r, c: mv.c });
+    advance(80);
+    return;
+  }
+
+  if (mv.type === 'portal_place') {
+    replayPortals = replayPortals.filter(p => p.owner !== mv.player);
+    replayPortals.push({ owner: mv.player, r: mv.r, c: mv.c });
+    advance(80);
+    return;
+  }
+
+  if (mv.type === 'portal_disappear') {
+    replayPortals = replayPortals.filter(p => !(p.owner === mv.player && p.r === mv.r && p.c === mv.c));
+    advance(80);
+    return;
+  }
+
+  advance(60);
+}
+
+  // === Динамические статы в шапке реплея ===
+
+  function computeReplayStats(chipIndex) {
+    const stats = {
+      1: { left: WALLS_PER_PLAYER, bombs: MAX_BOMBS, portals: MAX_PORTALS, freeze: MAX_FREEZE },
+      2: { left: WALLS_PER_PLAYER, bombs: MAX_BOMBS, portals: MAX_PORTALS, freeze: MAX_FREEZE },
+    };
+
+    for (let ci = 0; ci < chipIndex; ci++) {
+      const chip = replayChips[ci];
+      if (!chip) continue;
+      for (const mv of chip.events) {
+        const p = mv.player;
+        if (p !== 1 && p !== 2) continue;
+
+        if (mv.type === 'wall') {
+          if (stats[p].left > 0) stats[p].left -= 1;
+        } else if (mv.type === 'bomb') {
+          if (stats[p].bombs > 0) stats[p].bombs -= 1;
+        } else if (mv.type === 'portal_place') {
+          if (stats[p].portals > 0) stats[p].portals -= 1;
+        } else if (mv.type === 'freeze') {
+          if (stats[p].freeze > 0) stats[p].freeze -= 1;
+        } else if (mv.type === 'bubble_collect') {
+          if (stats[p].left < WALLS_PER_PLAYER) stats[p].left += 1;
+        }
+      }
+    }
+    return stats;
+  }
+
+  function buildReplaySnow(container, count, filled) {
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('div');
+      d.className = 'snow-dot' + (i < filled ? ' ready' : ' empty');
+      d.innerHTML = `<svg viewBox="0 0 24 24">${FREEZE_ICON}</svg>`;
+      container.appendChild(d);
+    }
+  }
+
+  function renderReplayHeaderPlayers(chipIndex) {
+    const mode = replayData.gameMode || 'classic';
+    const p1 = (replayData.players && replayData.players['1']) || {};
+    const p2 = (replayData.players && replayData.players['2']) || {};
+
+    const dyn = computeReplayStats(chipIndex || 0);
+
+    // --- P1 ---
+    replayChipP1.style.borderColor = COLOR_P1;
+    replayAvatarP1.style.background = COLOR_P1;
+    if (p1.photo) replayAvatarP1.innerHTML = `<img src="${p1.photo}" alt="" referrerpolicy="no-referrer">`;
+    else replayAvatarP1.textContent = (p1.name || 'И').charAt(0).toUpperCase();
+    replayNameP1.textContent = p1.name || 'Игрок 1';
+
+    replayDotsP1.innerHTML = '';
+    for (let i = 0; i < WALLS_PER_PLAYER; i++) {
+      const d = document.createElement('div');
+      d.className = 'pstat-dot' + (i < dyn[1].left ? ' me-1' : '');
+      replayDotsP1.appendChild(d);
+    }
+
+    const showBombsOrPortals = (mode === 'bombs' || mode === 'portals');
+    if (showBombsOrPortals) {
+      const cnt = (mode === 'bombs') ? dyn[1].bombs : dyn[1].portals;
+      replayBombsP1.style.display = 'grid';
+      replayBombsP1.innerHTML = '';
+      for (let i = 0; i < MAX_BOMBS; i++) {
+        const d = document.createElement('div');
+        d.className = 'pstat-dot bomb' + (i < cnt ? '' : ' empty');
+        replayBombsP1.appendChild(d);
+      }
+    } else {
+      replayBombsP1.style.display = 'none';
+      replayBombsP1.innerHTML = '';
+    }
+
+    if (mode === 'freeze') {
+      replaySnowP1.style.display = 'flex';
+      buildReplaySnow(replaySnowP1, MAX_FREEZE, dyn[1].freeze);
+    } else {
+      replaySnowP1.style.display = 'none';
+      replaySnowP1.innerHTML = '';
+    }
+
+    // --- P2 ---
+    replayChipP2.style.borderColor = COLOR_P2;
+    replayAvatarP2.style.background = COLOR_P2;
+    if (p2.photo) replayAvatarP2.innerHTML = `<img src="${p2.photo}" alt="" referrerpolicy="no-referrer">`;
+    else replayAvatarP2.textContent = (p2.name || 'И').charAt(0).toUpperCase();
+    replayNameP2.textContent = p2.name || 'Игрок 2';
+
+    replayDotsP2.innerHTML = '';
+    for (let i = 0; i < WALLS_PER_PLAYER; i++) {
+      const d = document.createElement('div');
+      d.className = 'pstat-dot' + (i < dyn[2].left ? ' me-2' : '');
+      replayDotsP2.appendChild(d);
+    }
+    if (showBombsOrPortals) {
+      const cnt = (mode === 'bombs') ? dyn[2].bombs : dyn[2].portals;
+      replayBombsP2.style.display = 'grid';
+      replayBombsP2.innerHTML = '';
+      for (let i = 0; i < MAX_BOMBS; i++) {
+        const d = document.createElement('div');
+        d.className = 'pstat-dot bomb' + (i < cnt ? '' : ' empty');
+        replayBombsP2.appendChild(d);
+      }
+    } else {
+      replayBombsP2.style.display = 'none';
+      replayBombsP2.innerHTML = '';
+    }
+    if (mode === 'freeze') {
+      replaySnowP2.style.display = 'flex';
+      buildReplaySnow(replaySnowP2, MAX_FREEZE, dyn[2].freeze);
+    } else {
+      replaySnowP2.style.display = 'none';
+      replaySnowP2.innerHTML = '';
+    }
+  }
+
+  function replaySetStep(chipIndex, animate) {
+  const len = replayChips.length;
+  if (chipIndex < 0 || chipIndex > len) return;
+
+  // Полный сброс всех активных анимаций и очереди,
+  // чтобы при быстром листании ничего не наслаивалось.
+  replayEventQueue = [];
+  replayEventPlaying = false;
+  replayChipCtx = null;
+
+  replayPieceAnim.p1 = null;
+  replayPieceAnim.p2 = null;
+  replayHitAnim = null;
+  replayPortalAttract = null;
+  replayWindPush = null;
+  replayWindWave = null;
+  replayMoversActive = false;
+  replayMoversFrom = null;
+
+  replayApplyStep(chipIndex, animate);
+  replayStep = chipIndex;
+  replayDraw();
+  renderReplayHeaderPlayers(chipIndex);
+  replayCounterCurrent.textContent = chipIndex;
+  replayCounterTotal.textContent = len;
+  replayProgress.style.width = (len ? (chipIndex / len) * 100 : 0) + '%';
+  btnReplayPrev.disabled = chipIndex === 0;
+  btnReplayNext.disabled = chipIndex === len;
+  updateReplayMovesHighlight();
+}
+
+  function showReplayScreen(data) {
+    replayData = data;
+    replayWallOwnerMap = rebuildReplayWallOwners();
+    replayMode = data.gameMode || 'classic';
+    replayPlates = data.plates || [];
+    replayArrows = data.arrows || [];
+    replayBushes = data.bushes || [];
+    replayMovers = (data.moversStart || data.movers || []).map(m => ({...m}));
+    replayPortals = (data.portals || []).map(p => ({...p}));
+    replayWallHp = {...(data.wallHp || {})};
+
+    replayInitialKeys = (data.keys || []).map(k => ({r: k.r, c: k.c, owner: k.owner, collected: false}));
+    replayInitialTraps = (data.traps || []).map(t => ({r: t.r, c: t.c, triggered: false, broken: false, hits: 0}));
+
+    replayKeys = replayInitialKeys.map(k => ({...k}));
+    replayTraps = replayInitialTraps.map(t => ({...t}));
+
+    replayFreezeProgress = 0;
+    replayTrapSpins.clear();
+    replayTrapBrokenAnims.clear();
+    replayPortalFades = [];
+    replayWindWave = null;
+    replayWindPush = null;
+    replayKeyCollectFx = [];
+    replayLockOpenAnims.clear();
+    replayPortalAttract = null;
+    replayCurrentFrozen = 0;
+    replayCurrentFrozenMovesLeft = 0;
+    replayEventQueue = [];
+    replayEventPlaying = false;
+    replayChipCtx = null;
+
+    const modeName = MODE_NAMES[replayMode] || 'Классическая';
+    replayModeTag.textContent = replayMode === 'classic' ? '' : modeName;
+
+    renderReplayHeaderPlayers(0);
+
+    showScreen('replay');
+    requestAnimationFrame(() => {
+      resizeReplayCanvas();
+      buildReplayMovesList();
+      replaySetStep(0, false);
+    });
+  }
+
+  async function loadReplayInline(replayId) {
+    try {
+      const res = await api('/api/validate', {
+        method: 'POST',
+        body: JSON.stringify({ initData: tg.initData, room: 'replay_' + replayId }),
+      });
+      if (res.mode !== 'replay' || !res.replay) {
+        showError('Повтор недоступен', 'Не удалось загрузить повтор.');
+        return;
+      }
+      showReplayScreen(res.replay);
+    } catch (e) {
+      showError('Ошибка', e.message || 'Не удалось загрузить повтор.');
+    }
+  }
+
+  btnReplayPrev.addEventListener('click', () => { if (replayStep > 0) replaySetStep(replayStep - 1, false); });
+  btnReplayNext.addEventListener('click', () => { if (replayStep < replayChips.length) replaySetStep(replayStep + 1, true); });
+
+  btnReplayShare.addEventListener('click', () => {
+    const rid = (replayData && (replayData.id || replayData.replayId)) || roomCode;
+    if (!rid) return;
+    if (tg && tg.switchInlineQuery) {
+      try { tg.switchInlineQuery('replay_' + rid, ['users', 'groups', 'channels']); } catch (e) {}
+    }
+  });
+
+  let replayTouchX = null;
+  replayCanvas.addEventListener('touchstart', (e) => { replayTouchX = e.touches[0].clientX; }, { passive: true });
+  replayCanvas.addEventListener('touchend', (e) => {
+    if (replayTouchX === null) return;
+    const dx = e.changedTouches[0].clientX - replayTouchX;
+    const len = replayChips.length;
+    if (Math.abs(dx) > 50) {
+      if (dx < 0 && replayStep < len) replaySetStep(replayStep + 1, true);
+      if (dx > 0 && replayStep > 0) replaySetStep(replayStep - 1, false);
+    }
+    replayTouchX = null;
+  });
+
+  async function bootstrap() {
+    if (!tg || !tg.initData) {
+      showError('Откройте в Telegram', 'Эта игра работает только внутри Telegram Mini App.');
+      return;
+    }
+    const startParam = tg.initDataUnsafe?.start_param || '';
+    if (!startParam) {
+      showError('Нет параметра', 'Ссылка не содержит код комнаты или ID повтора.');
+      return;
+    }
+
+    loadingMsg.textContent = 'Авторизация…';
+    roomCode = startParam;
+
+    try {
+      const res = await api('/api/validate', {
+        method: 'POST',
+        body: JSON.stringify({ initData: tg.initData, room: roomCode }),
+      });
+      myUser = res.user;
+
+      if (res.mode === 'replay') {
+        mode = 'replay';
+        showReplayScreen(res.replay);
+        return;
+      }
+
+      myPlayer = res.player;
+      isObserver = !!res.isObserver;
+      gameMode = res.gameMode || 'classic';
+
+      if (gameMode === 'bombs') {
+        myBombsEl.style.display = 'grid';
+        enemyBombsEl.style.display = 'grid';
+        btnBomb.classList.remove('hidden');
+      }
+      if (gameMode === 'freeze') {
+        mySnowEl.style.display = '';
+        enemySnowEl.style.display = '';
+      }
+
+      const s = await api(`/api/state/${roomCode}`);
+      applyState(s);
+      resizeCanvas();
+
+      if (s.started) {
+        refresh();
+        showScreen('game');
+        if (s.gameOver && s.winner) handleGameOver(s.winner, s.replayId);
+        else startPolling();
+      } else {
+        waitingTitle.textContent = 'Ожидание второго игрока';
+        waitingMsg.textContent = 'Игра начнётся автоматически, как только кто-то присоединится.';
+        showScreen('waiting');
+        startPolling();
+      }
+    } catch (e) {
+      if (e.status === 410) {
+        const replayId = e.replayId || (e.data && e.data.replayId) || null;
+        if (replayId) showErrorWithReplay('Игра завершена', 'Комната закрыта после победы. Можно посмотреть повтор.', replayId);
+        else showError('Игра завершена', 'Эта комната закрыта.');
+        return;
+      }
+      if (e.status === 404) showError('Не найдено', 'Комната или повтор не существует.');
+      else if (e.status === 409) showError('Комната заполнена', 'Уже играют двое.');
+      else if (e.status === 401) showError('Ошибка авторизации', 'Не удалось проверить подпись Telegram.');
+      else showError('Ошибка', e.message || 'Что-то пошло не так.');
+    }
+  }
+
+  function getBoardRect() { return canvas.getBoundingClientRect(); }
+  function getPointerPos(e) {
+    const isTouch = !!(e.touches && e.touches.length);
+    const touch = isTouch ? e.touches[0] : e;
+    return { x: touch.clientX, y: touch.clientY - (isTouch ? FINGER_OFFSET_Y : 0) };
+  }
+  function toCanvasXY(cx, cy) {
+    const rect = getBoardRect();
+    const sx = rect.width / (canvas.width / (window.devicePixelRatio || 1));
+    const sy = rect.height / (canvas.height / (window.devicePixelRatio || 1));
+    return { x: (cx - rect.left) / sx, y: (cy - rect.top) / sy };
+  }
+  function getWallCoordinates(clientX, clientY, orient) {
+    const p = toCanvasXY(clientX, clientY);
+    let viewC, viewR;
+    if (orient === 'h') { viewC = Math.floor((p.x - PAD) / CELL); viewR = Math.round((p.y - PAD) / CELL) - 1; }
+    else { viewC = Math.round((p.x - PAD) / CELL) - 1; viewR = Math.floor((p.y - PAD) / CELL); }
+    viewC = Math.max(0, Math.min(N - 2, viewC));
+    viewR = Math.max(0, Math.min(N - 2, viewR));
+    let r, c;
+    if (myPlayer === 1) { r = viewR; c = viewC; }
+    else { r = N - 2 - viewR; c = N - 2 - viewC; }
+    const cx = PAD + (viewC + 1) * CELL;
+    const cy = PAD + (viewR + 1) * CELL;
+    const dist = Math.hypot(p.x - cx, p.y - cy);
+    const isInsideBoard = dist < CELL * 1.5;
+    const valid = orient === 'h' ? canPlaceHClient(r, c) : canPlaceVClient(r, c);
+    return { orient, r, c, viewR, viewC, cx, cy, valid, isInsideBoard };
+  }
+  function isPointerOverBoard(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const margin = 40;
+    return clientX >= rect.left - margin && clientX <= rect.right + margin
+        && clientY >= rect.top - margin && clientY <= rect.bottom + margin;
+  }
+
+  function startDrag(e, orient) {
+    if (isObserver) return;
+    if (!state || state.gameOver || sending || eventPlaying) return;
+    if (state.current !== myPlayer) return;
+    const myLeft = myPlayer === 1 ? state.left1 : state.left2;
+    if (myLeft <= 0) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    const p = toCanvasXY(pos.x, pos.y);
+    dragState = { orient, startX: pos.x, startY: pos.y, animX: p.x, animY: p.y, targetX: p.x, targetY: p.y, preview: null, moved: false };
+    requestAnimationFrame(animDragLoop);
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+    document.addEventListener('touchcancel', onDragEnd);
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+  }
+  function animDragLoop() {
+    if (!dragState) return;
+    dragState.animX = lerp(dragState.animX, dragState.targetX, LERP_FACTOR);
+    dragState.animY = lerp(dragState.animY, dragState.targetY, LERP_FACTOR);
+    if (Math.abs(dragState.animX - dragState.targetX) < 0.3) dragState.animX = dragState.targetX;
+    if (Math.abs(dragState.animY - dragState.targetY) < 0.3) dragState.animY = dragState.targetY;
+    draw();
+    requestAnimationFrame(animDragLoop);
+  }
+  function onDragMove(e) {
+    if (!dragState) return;
+    e.preventDefault();
+    const pos = getPointerPos(e);
+    if (Math.hypot(pos.x - dragState.startX, pos.y - dragState.startY) > DRAG_MOVE_THRESHOLD) dragState.moved = true;
+    const p = toCanvasXY(pos.x, pos.y);
+    dragState.targetX = p.x; dragState.targetY = p.y;
+    const overBoard = isPointerOverBoard(pos.x, pos.y);
+    if (overBoard) {
+      const wallData = getWallCoordinates(pos.x, pos.y, dragState.orient);
+      if (wallData.isInsideBoard && wallData.valid) dragState.preview = wallData;
+      else dragState.preview = null;
+    } else dragState.preview = null;
+  }
+  function onDragEnd(e) {
+    if (!dragState) return;
+    const ds = dragState;
+    dragState = null;
+    document.removeEventListener('touchmove', onDragMove);
+    document.removeEventListener('touchend', onDragEnd);
+    document.removeEventListener('touchcancel', onDragEnd);
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+
+    let endX = null, endY = null;
+    if (e && e.changedTouches && e.changedTouches.length) { endX = e.changedTouches[0].clientX; endY = e.changedTouches[0].clientY; }
+    else if (e && e.clientX !== undefined) { endX = e.clientX; endY = e.clientY; }
+    const overBoard = (endX !== null && endY !== null) ? isPointerOverBoard(endX, endY) : false;
+
+    if (ds.preview && ds.preview.valid && ds.moved && overBoard) {
+      startSendingVisual(ds.preview.orient);
+      sendMove({ type: 'wall', orient: ds.preview.orient, r: ds.preview.r, c: ds.preview.c });
+    } else draw();
+  }
+  function attachDrag(el) {
+    const orient = el.dataset.orient;
+    const handler = (e) => startDrag(e, orient);
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('mousedown', handler);
+  }
+  function startSendingVisual(orient) {
+    sending = true;
+    myPanel.classList.add('sending');
+    myDrags.querySelectorAll('.drag-item').forEach(item => { if (item.dataset.orient === orient) item.classList.add('sending'); });
+    refresh();
+  }
+  function stopSendingVisual() {
+    sending = false;
+    myPanel.classList.remove('sending');
+    myDrags.querySelectorAll('.drag-item').forEach(item => item.classList.remove('sending'));
+    refresh();
+  }
+  async function sendMove(action) {
+    if (isObserver) { stopSendingVisual(); return; }
+    if (!roomCode) { stopSendingVisual(); return; }
+    try {
+      const res = await api(`/api/move/${roomCode}`, {
+        method: 'POST',
+        body: JSON.stringify({ player: myPlayer, action }),
+      });
+      const newState = { ...state, ...res };
+      applyState(newState);
+      if (newState.gameOver && newState.winner) handleGameOver(newState.winner, newState.replayId);
+    } catch (e) {
+      if (e.status === 410 || e.status === 404) {
+        const replayId = e.replayId || (e.data && e.data.replayId) || null;
+        if (replayId) showErrorWithReplay('Игра завершена', 'Комната закрыта после победы.', replayId);
+        else handleGameOver(0, null);
+        return;
+      }
+      try { await fetchState(); } catch (e2) {}
+    } finally {
+      stopSendingVisual();
+    }
+  }
+  function onBoardClick(e) {
+    if (isObserver) return;
+    if (!state || state.gameOver || sending || eventPlaying) return;
+    if (state.current !== myPlayer) return;
+    if (dragState) return;
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const p = toCanvasXY(touch.clientX, touch.clientY);
+    const vcol = Math.floor((p.x - PAD) / CELL);
+    const vrow = Math.floor((p.y - PAD) / CELL);
+    if (vrow < 0 || vrow >= N || vcol < 0 || vcol >= N) return;
+    const row = fromViewR(vrow);
+    const col = fromViewC(vcol);
+    const active = myPlayer === 1 ? state.p1 : state.p2;
+    if (row === active[0] && col === active[1]) return;
+
+    if (gameMode === 'fragile') {
+      const hits = getFragileHitTargets(myPlayer);
+      if (hits.some(([r, c]) => r === row && c === col)) {
+        sending = true;
+        myPanel.classList.add('sending');
+        refresh();
+        sendMove({ type: 'move', r: row, c: col });
+        return;
+      }
+    }
+
+    const allowed = getAvailableMoves(myPlayer);
+    if (allowed.some(([r, c]) => r === row && c === col)) {
+      sending = true;
+      myPanel.classList.add('sending');
+      refresh();
+      sendMove({ type: 'move', r: row, c: col });
+    }
+  }
+
+  canvas.addEventListener('click', onBoardClick);
+  canvas.addEventListener('touchend', (e) => {
+    if (dragState) return;
+    if (e.changedTouches.length) onBoardClick({ changedTouches: [e.changedTouches[0]] });
+  });
+
+  document.querySelectorAll('.drag-item').forEach(attachDrag);
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (screens.game.classList.contains('active') && canvas.width) { resizeCanvas(); draw(); }
+      if (screens.replay.classList.contains('active') && replayCanvas.width) { resizeReplayCanvas(); replayDraw(); }
+    }, 60);
+  });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (screens.game.classList.contains('active') && canvas.width) { resizeCanvas(); draw(); }
+      if (screens.replay.classList.contains('active') && replayCanvas.width) { resizeReplayCanvas(); replayDraw(); }
+    }, 300);
+  });
+
+  buildDots(myDotsEl, WALLS_PER_PLAYER);
+  buildDots(enemyDotsEl, WALLS_PER_PLAYER);
+  buildDots(myBombsEl, MAX_BOMBS);
+  buildDots(enemyBombsEl, MAX_BOMBS);
+  buildSnow(mySnowEl, MAX_FREEZE);
+  buildSnow(enemySnowEl, MAX_FREEZE);
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

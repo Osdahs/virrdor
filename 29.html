@@ -639,6 +639,7 @@
   let mode = 'game';
   let gameMode = 'classic';
   const PALETTE_LIGHT = { 1: 'hsl(7, 38%, 39%)', 2: 'hsl(211, 38%, 39%)' };
+  const PALETTE_NEUTRAL = '#f5f5f5';
   const PALETTE_DARK = { 1: 'hsl(7, 38%, 32%)', 2: 'hsl(211, 38%, 32%)' };
   let palettePaintFx = [];
   let paletteAnimatedOwners = null;
@@ -646,20 +647,20 @@
 
   function paletteScore(player) {
     if (!state || !state.painted) return 0;
-    return state.painted.reduce((sum, row) =>
-      sum + row.filter(owner => owner === player).length, 0);
+    return state.painted.reduce((sum, row, r) =>
+      sum + row.filter((owner, c) => !(r === Math.floor(N/2) && c === Math.floor(N/2)) && owner === player).length, 0);
   }
 
   function palettePaintCell(r, c, owner, effect, now) {
     const x = PAD + toViewC(c) * CELL;
     const y = PAD + toViewR(r) * CELL;
     const shade = (r + c) % 2 === 0 ? PALETTE_LIGHT : PALETTE_DARK;
-    const color = shade[owner];
+    const color = owner === 3 ? PALETTE_NEUTRAL : shade[owner];
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, y, CELL, CELL);
     ctx.clip();
-    ctx.globalAlpha = 0.92;
+    ctx.globalAlpha = owner === 3 ? 1 : 0.92;
     ctx.fillStyle = color;
     if (!effect) {
       ctx.fillRect(x, y, CELL, CELL);
@@ -680,13 +681,14 @@
   }
 
   function drawPalette() {
-    if (gameMode !== 'palette' || !state || !state.painted) return;
+    if (gameMode !== 'palette' || !state) return;
     const now = performance.now();
     for (let r = 0; r < N; r++) {
       for (let c = 0; c < N; c++) {
-        const owner = state.painted[r]?.[c] || 0;
+        const center = r === Math.floor(N / 2) && c === Math.floor(N / 2);
+        const owner = center ? 3 : (state.painted?.[r]?.[c] || 0);
         if (!owner) continue;
-        const fx = palettePaintFx.find(f => f.r === r && f.c === c);
+        const fx = owner === 3 ? null : palettePaintFx.find(f => f.r === r && f.c === c);
         palettePaintCell(r, c, owner, fx, now);
       }
     }
@@ -2003,7 +2005,13 @@
         // Поддерживаются также события старого сервера с отдельным paint.
         const paint = ev.paint || eventQueue.find(e => e.type === 'paint' &&
           e.player === ev.player && e.r === ev.to?.[0] && e.c === ev.to?.[1]);
-        if (paint && !palettePaintFx.some(f => f.r === paint.r && f.c === paint.c)) {
+        if (paint && paint.r === Math.floor(N/2) && paint.c === Math.floor(N/2)) {
+          console.warn('[PALETTE] Server attempted to paint NEUTRAL CENTER; animation ignored', paint);
+        }
+        if (ev.to?.[0] === Math.floor(N/2) && ev.to?.[1] === Math.floor(N/2)) {
+          console.info('[PALETTE] Entered center: movement allowed, painting forbidden, score unchanged');
+        }
+        if (paint && !(paint.r === Math.floor(N/2) && paint.c === Math.floor(N/2)) && !palettePaintFx.some(f => f.r === paint.r && f.c === paint.c)) {
           palettePaintFx.push({r: paint.r, c: paint.c,
             from: [...(paint.from || from)], start: performance.now(), duration: MOVE_DURATION});
         }
@@ -2326,6 +2334,12 @@
     // Запоминаем предыдущую серверную карту до замены состояния.
     paletteAnimatedOwners = prev?.painted ? prev.painted.map(row => [...row]) : null;
     state = s;
+    if (gameMode === 'palette' || s.gameMode === 'palette') {
+      const mid = Math.floor(N / 2);
+      const owner = s.painted?.[mid]?.[mid];
+      if (owner !== 3) console.warn('[PALETTE] Server returned center owner=', owner, 'expected 3; client will render white regardless. Check server deployment!');
+      else console.info('[PALETTE] Center confirmed NEUTRAL=3, white, unpaintable');
+    }
     if (gameMode === 'palette' && !prev) palettePaintFx = [];
     if (s.players) playersMeta = s.players;
     if (s.observers) observersList = s.observers;
@@ -2831,6 +2845,7 @@
       const start2 = replayData.startP2 || [0, 4];
       painted[start1[0]][start1[1]] = 1;
       painted[start2[0]][start2[1]] = 2;
+      painted[Math.floor(N / 2)][Math.floor(N / 2)] = 3;
       for (let i = 0; i < replayStep; i++) {
         const chip = replayChips[i];
         if (!chip) continue;
@@ -2844,8 +2859,8 @@
           const owner = painted[r][c];
           if (!owner) continue;
           const shade = (r + c) % 2 === 0 ? PALETTE_LIGHT : PALETTE_DARK;
-          replayCtx.globalAlpha = 0.92;
-          replayCtx.fillStyle = shade[owner];
+          replayCtx.globalAlpha = owner === 3 ? 1 : 0.92;
+          replayCtx.fillStyle = owner === 3 ? PALETTE_NEUTRAL : shade[owner];
           const x = R_PAD + c * R_CELL, y = R_PAD + r * R_CELL;
           const fx = replayPaletteFx && replayPaletteFx.r === r && replayPaletteFx.c === c
             ? replayPaletteFx : null;
